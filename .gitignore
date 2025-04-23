@@ -1,0 +1,52 @@
+# --- IDE & Editor ---
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime-*
+
+# --- Go ---
+# Binaries
+backend/bin/
+backend/exe/
+
+# Test artifacts
+backend/*.test
+backend/coverage.txt
+
+# --- Environment Files ---
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# --- Database & Local Data ---
+*.db
+*.sqlite*
+backend/dbdata/
+
+# --- Logs & Temp ---
+*.log
+backend/tmp/
+backend/logs/
+
+# --- Build Files ---
+backend/go.sum
+backend/go.mod~
+*.exe
+*.exe~
+
+# --- OS Generated Files ---
+.DS_Store
+._*
+Thumbs.db
+
+# --- Docker ---
+docker-compose.override.yml
+backend/docker-compose.*.yml
+
+# --- Seed Files ---
+backend/seed/*.seed
+!backend/seed/seed.go
+
+# --- Development Artifacts ---
+backend/api-test.http
