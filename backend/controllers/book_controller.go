@@ -315,28 +315,26 @@ func (bc *BookController) GetBooksByAuthor(c *gin.Context) {
 }
 
 func (bc *BookController) GetBooksByCategory(c *gin.Context) {
-	category := c.DefaultQuery("category", "")
-
-	if category == "" {
+	categoryParam := c.Query("category")
+	if categoryParam == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Category is required"})
 		return
 	}
 
+	category := models.BookCategory(categoryParam)
+	if !category.IsValid() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid category"})
+		return
+	}
+
 	var books []models.Book
-
-	err := bc.DB.
-		Where("category ILIKE ?", "%"+category+"%").
-		Find(&books).Error
-
-	if err != nil {
+	if err := bc.DB.Where("category = ?", category).Find(&books).Error; err != nil {
 		log.Printf("[DEBUG] Lỗi khi lấy sách theo category: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lấy sách theo category"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"data": books,
-	})
+	c.JSON(http.StatusOK, gin.H{"data": books})
 }
 
 func (bc *BookController) SearchBooks(c *gin.Context) {

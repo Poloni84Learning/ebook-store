@@ -50,3 +50,90 @@ backend/seed/*.seed
 
 # --- Development Artifacts ---
 backend/api-test.http
+
+# --- Frontend Vue.js ---
+
+# Dependency directories
+frontend/node_modules/
+frontend/.pnpm-store/
+
+# Build directories
+frontend/dist/
+frontend/.output/
+frontend/.nuxt/
+
+# Cache directories
+frontend/.cache/
+frontend/.vite/
+frontend/.vitepress/cache
+
+# Environment files
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# Debug logs
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+
+# Editor directories and files
+frontend/.history/
+frontend/*.suo
+frontend/*.ntvs*
+frontend/*.njsproj
+frontend/*.sln
+frontend/*.sw?
+
+# IDE specific
+frontend/jsconfig.json
+frontend/tsconfig.tsbuildinfo
+
+# Vite/Webpack cache
+frontend/node_modules/.vite/
+frontend/node_modules/.cache/
+
+# Testing
+frontend/coverage/
+frontend/.nyc_output/
+
+# Storybook
+frontend/storybook-static/
+frontend/.storybook/
+
+# Cypress
+frontend/cypress/screenshots/
+frontend/cypress/videos/
+frontend/cypress/downloads/
+
+# Local development
+frontend/.DS_Store
+frontend/.env.local
+frontend/.env.*.local
+
+# Auto-generated files
+frontend/src/generated/
+frontend/src/auto-imports.d.ts
+frontend/src/components.d.ts
+
+# Vercel
+frontend/.vercel/
+
+# ESLint cache
+frontend/.eslintcache
+
+# Optional npm cache directory
+frontend/.npm
+
+# Optional REPL history
+frontend/.node_repl_history
+
+# Optional stylelint cache
+frontend/.stylelintcache
+
+# Optional IDE (JetBrains)
+frontend/.idea/
+
+# Optional VS Code
+frontend/.vscode/

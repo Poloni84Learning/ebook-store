@@ -5,15 +5,16 @@ services:
     image: postgres:15-alpine
     container_name: ebook_store_db
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: ebook_store
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-ebook_store}
+      TZ: ${TIME_ZONE:-Asia/Ho_Chi_Minh}  # Thêm múi giờ cho DB
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,15 +23,26 @@ services:
     build: 
       context: ./backend
       dockerfile: Dockerfile
+    environment:
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-ebook_store}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-24h}
+      SSL_MODE: ${SSL_MODE:-disable}
+      MAX_DB_CONN: ${MAX_DB_CONN:-20}
+      DEBUG_MODE: ${DEBUG_MODE:-true}
+      TZ: ${TIME_ZONE:-Asia/Ho_Chi_Minh}  # Đồng bộ múi giờ
     ports:
-      - "8081:8081"  # Đã thay đổi từ 8080 -> 8081
+      - "${SERVER_PORT:-8081}:8081"
     depends_on:
       db:
         condition: service_healthy
     env_file:
       - ./backend/.env
     restart: unless-stopped
-  
 
 volumes:
   postgres_data:

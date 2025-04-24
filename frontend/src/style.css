@@ -1,0 +1,106 @@
+:root {
+  font-family: 'Montserrat', 'Nunito Sans', system-ui, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  /* Màu sắc theo thiết kế của bạn */
+  --primary: #FFCE1A;
+  --secondary: #0D0842;
+  --blackBG: #FFFFF8;
+  --favorite: #FF5841;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Reset và thiết lập chung */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: var(--blackBG);
+  color: var(--secondary);
+}
+
+/* Thiết lập thẻ a và router-link */
+a, .router-link {
+  font-weight: 500;
+  color: var(--secondary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover, .router-link:hover {
+  color: var(--primary);
+}
+
+/* Thiết lập button */
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: var(--primary);
+  color: var(--secondary);
+  cursor: pointer;
+  transition: all 0.25s;
+}
+
+button:hover {
+  background-color: var(--secondary);
+  color: white;
+  border-color: var(--primary);
+}
+
+button:focus,
+button:focus-visible {
+  outline: 4px auto var(--primary);
+}
+
+/* Layout chính */
+#app {
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: left; /* Thay đổi từ center sang left nếu cần */
+}
+
+/* Các class tiện ích */
+.card {
+  padding: 2em;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive và dark mode nếu cần */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color: #ffffff;
+    background-color: var(--secondary);
+  }
+  
+  body {
+    background-color: var(--secondary);
+    color: white;
+  }
+  
+  a:hover {
+    color: var(--primary);
+  }
+  
+  button {
+    background-color: var(--primary);
+    color: var(--secondary);
+  }
+}
