@@ -37,6 +37,9 @@ services:
       TZ: ${TIME_ZONE:-Asia/Ho_Chi_Minh}  # Đồng bộ múi giờ
     ports:
       - "${SERVER_PORT:-8081}:8081"
+    volumes:
+      - ./backend/seeds/covers:/app/public/uploads/covers
+      - ./backend/public/default-cover.jpg:/app/public/uploads/default-cover.jpg
     depends_on:
       db:
         condition: service_healthy

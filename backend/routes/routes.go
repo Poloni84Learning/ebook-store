@@ -14,7 +14,7 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	// Middleware chung
 	router.Use(middlewares.CORSMiddleware())
 	router.Use(middlewares.LoggerMiddleware())
-
+	router.Static("/uploads", "./public/uploads")
 	// Khởi tạo controllers
 	authController := controllers.NewAuthController(db, cfg)
 	bookController := controllers.NewBookController(db, cfg)

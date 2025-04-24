@@ -8,7 +8,7 @@ import (
 	"github.com/Poloni84Learning/ebook-store/config"
 	"github.com/Poloni84Learning/ebook-store/models"
 	"github.com/Poloni84Learning/ebook-store/routes"
-	"github.com/Poloni84Learning/ebook-store/seed"
+	"github.com/Poloni84Learning/ebook-store/seeds"
 	"github.com/Poloni84Learning/ebook-store/utils"
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/postgres"
@@ -28,7 +28,7 @@ func main() {
 
 	// Seed dữ liệu mẫu (nếu cần)
 	if cfg.DebugMode {
-		seed.SeedAll(db, cfg)
+		seeds.SeedAll(db, cfg)
 	}
 
 	// Khởi tạo router

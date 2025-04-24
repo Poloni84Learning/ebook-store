@@ -57,6 +57,7 @@ type BookInput struct {
 	Description string       `json:"description" binding:"max=500"`
 	Price       float64      `json:"price" binding:"required,gt=0"`
 	Stock       int          `json:"stock" binding:"gte=0"`
+	CoverImage  string       `json:"cover_image"`
 	Category    BookCategory `json:"category" binding:"max=50"`
 	PublishedAt string       `json:"published_at" binding:"max=50"`
 	ISBN        string       `json:"isbn" binding:"required,min=10,max=20"`
@@ -109,6 +110,9 @@ func (b *Book) BeforeCreate(tx *gorm.DB) error {
 	}
 	if b.Price <= 0 {
 		b.Price = 1.0
+	}
+	if b.CoverImage == "" {
+		b.CoverImage = "/uploads/default-cover.jpg"
 	}
 	return nil
 }
