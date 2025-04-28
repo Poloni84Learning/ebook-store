@@ -93,7 +93,7 @@ func (oc *OrderController) CreateOrder(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch created order"})
 		return
 	}
-	c.JSON(http.StatusCreated, order)
+	c.JSON(http.StatusCreated, gin.H{"success": true, "data": order})
 }
 
 // UserUpdateOrder - Cập nhật đơn hàng (dành cho user)

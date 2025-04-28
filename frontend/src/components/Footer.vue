@@ -39,7 +39,7 @@ const { t } = useI18n()
         </div>
       </div>
       <div class="border-t border-gray-700 mt-8 pt-6 text-center">
-        <p>&copy; {{ new Date().getFullYear() }} BookStore. {{ t('footer.rights') }}</p>
+        <p>&copy; {{ new Date().getFullYear() }} EBookStore. {{ t('footer.rights') }}</p>
       </div>
     </div>
   </footer>

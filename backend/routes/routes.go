@@ -20,7 +20,8 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	bookController := controllers.NewBookController(db, cfg)
 	orderController := controllers.NewOrderController(db, cfg)
 	comboController := controllers.NewComboController(db, cfg)
-	reviewController := controllers.NewReviewController(db, cfg) // Thêm controller review
+	reviewController := controllers.NewReviewController(db, cfg)
+	systemConfigController := controllers.SystemConfigController{DB: db}
 
 	// Public routes (không yêu cầu auth)
 	public := router.Group("/api")
@@ -44,6 +45,7 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 		public.GET("/books/top-selling", bookController.GetTopBooksByCompletedOrders)
 		public.GET("/books/most-reviewed", reviewController.GetMostReviewedBooks)
 		public.GET("/books/top-rated", reviewController.GetTopRatedBooks)
+		public.GET("/categories", bookController.GetAllCategories)
 	}
 
 	// Protected routes (yêu cầu JWT auth)
@@ -85,8 +87,8 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 		// Order routes
 		order := protected.Group("/orders")
 		{
-			order.POST("/", orderController.CreateOrder)
-			order.GET("/", orderController.GetUserOrders)
+			order.POST("", orderController.CreateOrder)
+			order.GET("", orderController.GetUserOrders)
 			order.GET("/:id", orderController.GetOrderDetails)
 			order.PUT("/:id", orderController.UserUpdateOrder) // User cập nhật đơn hàng
 
@@ -121,6 +123,13 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 				adminDashboard.GET("/top-authors", bookController.GetTopAuthors)
 				adminDashboard.GET("/top-total-orders", bookController.GetTotalOrders)
 
+			}
+			adminSystemConfig := admin.Group("/system-config")
+			{
+				adminSystemConfig.POST("/", systemConfigController.CreateSystemConfig)
+				adminSystemConfig.GET("/", systemConfigController.GetSystemConfig)
+				adminSystemConfig.PUT("/", systemConfigController.UpdateSystemConfig)
+				adminSystemConfig.DELETE("/", systemConfigController.DeleteSystemConfig)
 			}
 
 		}

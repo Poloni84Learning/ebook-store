@@ -37,7 +37,8 @@ type TopRatedBook struct {
 	Title         string  `json:"title"`
 	Author        string  `json:"author"`
 	CoverImage    string  `json:"cover_image"`
-	AverageRating float64 `json:"average_rating"` // Viết hoa
+	AverageRating float64 `json:"average_rating"`
+	Price         float64 `json:"price"`
 }
 
 // CreateReview tạo mới review
@@ -218,16 +219,17 @@ func (rc *ReviewController) GetMostReviewedBooks(c *gin.Context) {
 	}
 
 	var results []struct {
-		ID         uint   `json:"id"`
-		Title      string `json:"title"`
-		Author     string `json:"author"`
-		CoverImage string `json:"cover_image"`
-		ViewCount  int64  `json:"view_count"`
+		ID         uint    `json:"id"`
+		Title      string  `json:"title"`
+		Author     string  `json:"author"`
+		CoverImage string  `json:"cover_image"`
+		ViewCount  int64   `json:"view_count"`
+		Price      float64 `json:"price"`
 	}
 
 	err = rc.DB.
 		Table("reviews").
-		Select("books.id, books.title, books.author, books.cover_image, COUNT(reviews.id) AS view_count").
+		Select("books.id, books.title, books.author, books.cover_image, books.price, COUNT(reviews.id) AS view_count").
 		Joins("JOIN books ON reviews.book_id = books.id").
 		Where(timeCondition).
 		Group("books.id").
@@ -277,7 +279,7 @@ func (rc *ReviewController) GetTopRatedBooks(c *gin.Context) {
 
 	err = rc.DB.
 		Table("reviews").
-		Select("books.id, books.title, books.author, books.cover_image, AVG(reviews.rating) as average_rating").
+		Select("books.id, books.title, books.author, books.cover_image, books.price, AVG(reviews.rating) as average_rating").
 		Joins("JOIN books ON reviews.book_id = books.id").
 		Where(timeCondition).
 		Group("books.id").
@@ -302,13 +304,30 @@ func (rc *ReviewController) GetTopRatedBooks(c *gin.Context) {
 // updateBookAverageRating cập nhật rating trung bình cho sách
 func (rc *ReviewController) updateBookAverageRating(bookID uint) {
 	var avgRating float64
-	rc.DB.Model(&models.Review{}).
+	// Thêm log trước khi thực hiện truy vấn
+	log.Printf("Calculating average rating for book %d", bookID)
+
+	err := rc.DB.Model(&models.Review{}).
 		Where("book_id = ?", bookID).
 		Select("COALESCE(AVG(rating), 0)").
 		Row().
 		Scan(&avgRating)
 
-	rc.DB.Model(&models.Book{}).
+	if err != nil {
+		log.Printf("Error calculating average rating: %v", err)
+		return
+	}
+
+	log.Printf("Calculated average: %f for book %d", avgRating, bookID)
+
+	result := rc.DB.Model(&models.Book{}).
 		Where("id = ?", bookID).
 		Update("average_rating", avgRating)
+
+	if result.Error != nil {
+		log.Printf("Error updating average rating: %v", result.Error)
+	} else {
+		log.Printf("Updated book %d with average rating %f, rows affected: %d",
+			bookID, avgRating, result.RowsAffected)
+	}
 }

@@ -37,6 +37,12 @@ type UpdateProfileInput struct {
 	AvatarURL *string `json:"avatar_url" binding:"omitempty"`
 }
 
+type UserResponse struct {
+	Success bool        `json:"success"`
+	User    interface{} `json:"user"`
+	Message string      `json:"message"`
+}
+
 func NewAuthController(db *gorm.DB, cfg *config.Config) *AuthController {
 	return &AuthController{DB: db, Config: cfg}
 }
@@ -46,7 +52,10 @@ func (ac *AuthController) Register(c *gin.Context) {
 	log.Println("[Auth] Bắt đầu xử lý đăng ký người dùng mới")
 	if err := c.ShouldBindJSON(&input); err != nil {
 		log.Printf("[Auth] Lỗi validate input: %v\n", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
 		return
 	}
 
@@ -55,7 +64,10 @@ func (ac *AuthController) Register(c *gin.Context) {
 	var existingUser models.User
 	if err := ac.DB.Where("username = ? OR email = ?", input.Username, input.Email).First(&existingUser).Error; err == nil {
 		log.Printf("[Auth] User đã tồn tại: %+v\n", existingUser)
-		c.JSON(http.StatusConflict, gin.H{"error": "Username hoặc email đã được sử dụng"})
+		c.JSON(http.StatusConflict, gin.H{
+			"success": false,
+			"error":   "Username or email already in use",
+		})
 		return
 	}
 
@@ -64,7 +76,10 @@ func (ac *AuthController) Register(c *gin.Context) {
 	hashedPassword, err := utils.HashPassword(input.Password)
 	if err != nil {
 		log.Printf("[Auth] Lỗi khi hash password: %v\n", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể tạo tài khoản"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Unable to create account",
+		})
 		return
 	}
 
@@ -80,12 +95,16 @@ func (ac *AuthController) Register(c *gin.Context) {
 	log.Printf("[Auth] Bắt đầu tạo user mới: %+v\n", user)
 	if err := ac.DB.Create(&user).Error; err != nil {
 		log.Printf("[Auth] Lỗi khi tạo user: %v\n", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Lỗi khi tạo tài khoản"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Error creating account",
+		})
 		return
 	}
 	log.Printf("[Auth] Đăng ký thành công cho user ID: %d\n", user.ID)
 	c.JSON(http.StatusCreated, gin.H{
-		"message": "Đăng ký thành công",
+		"success": true,
+		"message": "Registration successful",
 		"user": gin.H{
 			"id":       user.ID,
 			"username": user.Username,
@@ -101,7 +120,10 @@ func (ac *AuthController) StaffLogin(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&input); err != nil {
 		log.Printf("[Auth] Lỗi validate input: %v\n", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
 		return
 	}
 
@@ -110,7 +132,10 @@ func (ac *AuthController) StaffLogin(c *gin.Context) {
 	var user models.User
 	if err := ac.DB.Where("username = ?", input.Username).First(&user).Error; err != nil {
 		log.Printf("[Auth] Không tìm thấy user: %v\n", err)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sai thông tin đăng nhập"})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Incorrect login information",
+		})
 		return
 	}
 
@@ -118,8 +143,9 @@ func (ac *AuthController) StaffLogin(c *gin.Context) {
 	if user.Role != models.RoleStaff && user.Role != models.RoleAdmin {
 		log.Printf("[Auth] User không có quyền truy cập: Role=%s\n", user.Role)
 		c.JSON(http.StatusForbidden, gin.H{
-			"error": "Tài khoản không có quyền truy cập hệ thống quản trị",
-			"hint":  "Chỉ staff và admin mới có thể đăng nhập tại đây",
+			"success": false,
+			"error":   "Account does not have access to the administrative system",
+			"hint":    "Only staff and admin can log in here",
 		})
 		return
 	}
@@ -128,7 +154,7 @@ func (ac *AuthController) StaffLogin(c *gin.Context) {
 	log.Println("[Auth] Kiểm tra password hash cho staff/admin")
 	if !utils.CheckPasswordHash(input.Password, user.PasswordHash) {
 		log.Println("[Auth] Password không khớp cho staff/admin")
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sai thông tin đăng nhập"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Incorrect login information"})
 		return
 	}
 
@@ -137,7 +163,10 @@ func (ac *AuthController) StaffLogin(c *gin.Context) {
 	token, err := utils.GenerateJWT(user.ID, user.Username, string(user.Role))
 	if err != nil {
 		log.Printf("[Auth] Lỗi khi tạo token: %v\n", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể tạo token"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Unable to generate token",
+		})
 		return
 	}
 
@@ -148,7 +177,8 @@ func (ac *AuthController) StaffLogin(c *gin.Context) {
 
 	log.Printf("[Auth] Đăng nhập thành công cho staff/admin ID: %d, Role: %s\n", user.ID, user.Role)
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Đăng nhập hệ thống quản trị thành công",
+		"success": true,
+		"message": "Login to the management system successfully",
 		"token":   token,
 		"user": gin.H{
 			"id":       user.ID,
@@ -165,7 +195,10 @@ func (ac *AuthController) Login(c *gin.Context) {
 	log.Println("[Auth] Bắt đầu xử lý đăng nhập")
 	if err := c.ShouldBindJSON(&input); err != nil {
 		log.Printf("[Auth] Lỗi validate input: %v\n", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
 		return
 	}
 
@@ -174,7 +207,10 @@ func (ac *AuthController) Login(c *gin.Context) {
 	var user models.User
 	if err := ac.DB.Where("username = ?", input.Username).First(&user).Error; err != nil {
 		log.Printf("[Auth] Không tìm thấy user: %v\n", err)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sai thông tin đăng nhập"})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Incorrect login information",
+		})
 		return
 	}
 
@@ -182,7 +218,10 @@ func (ac *AuthController) Login(c *gin.Context) {
 	log.Println("[Auth] Kiểm tra password hash")
 	if !utils.CheckPasswordHash(input.Password, user.PasswordHash) {
 		log.Println("[Auth] Password không khớp")
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sai thông tin đăng nhập"})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Incorrect login information",
+		})
 		return
 	}
 
@@ -191,7 +230,10 @@ func (ac *AuthController) Login(c *gin.Context) {
 	token, err := utils.GenerateJWT(user.ID, user.Username, string(user.Role))
 	if err != nil {
 		log.Printf("[Auth] Lỗi khi tạo token: %v\n", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể tạo token"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Unable to generate token",
+		})
 		return
 	}
 
@@ -201,7 +243,8 @@ func (ac *AuthController) Login(c *gin.Context) {
 	ac.DB.Model(&user).Update("last_login", &now)
 	log.Printf("[Auth] Đăng nhập thành công cho user ID: %d\n", user.ID)
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Đăng nhập thành công",
+		"success": true,
+		"message": "Login successful",
 		"token":   token,
 		"user": gin.H{
 			"id":       user.ID,
@@ -219,7 +262,10 @@ func (ac *AuthController) Logout(c *gin.Context) {
 	tokenString := utils.ExtractToken(c)
 	if tokenString == "" {
 		log.Println("[Auth] Không tìm thấy token hợp lệ trong header hoặc cookie")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Token không được cung cấp"})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Token not provided",
+		})
 		return
 	}
 
@@ -227,11 +273,17 @@ func (ac *AuthController) Logout(c *gin.Context) {
 	err := utils.AddToBlacklist(tokenString, ac.Config.JWTExpiration)
 	if err != nil {
 		log.Printf("[Auth] Lỗi khi thêm token vào blacklist: %v\n", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Lỗi khi đăng xuất"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Error while logging out",
+		})
 		return
 	}
 	log.Println("[Auth] Đăng xuất thành công")
-	c.JSON(http.StatusOK, gin.H{"message": "Đăng xuất thành công"})
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Logout successful",
+	})
 }
 
 func (ac *AuthController) GetProfile(c *gin.Context) {
@@ -241,11 +293,18 @@ func (ac *AuthController) GetProfile(c *gin.Context) {
 	if err := ac.DB.First(&user, userID).Error; err != nil {
 
 		log.Printf("[Auth] Không tìm thấy user ID %d: %v\n", userID, err)
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		c.JSON(http.StatusNotFound, gin.H{
+			"success": false,
+			"error":   "User not found",
+		})
 		return
 	}
 	log.Printf("[Auth] Trả về profile cho user ID: %d\n", userID)
-	c.JSON(http.StatusOK, user.ToResponse())
+	c.JSON(http.StatusOK, UserResponse{
+		Success: true,
+		User:    user.ToResponse(),
+		Message: "Get profile successfully",
+	})
 }
 
 func (ac *AuthController) UpdateProfile(c *gin.Context) {
@@ -255,14 +314,20 @@ func (ac *AuthController) UpdateProfile(c *gin.Context) {
 	var input UpdateProfileInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		log.Printf("[Auth] Lỗi validate input: %v\n", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
 		return
 	}
 
 	var user models.User
 	if err := ac.DB.First(&user, userID).Error; err != nil {
 		log.Printf("[Auth] Không tìm thấy user ID %d: %v\n", userID, err)
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		c.JSON(http.StatusNotFound, gin.H{
+			"success": false,
+			"error":   "User not found",
+		})
 		return
 	}
 
@@ -290,17 +355,27 @@ func (ac *AuthController) UpdateProfile(c *gin.Context) {
 
 	if err := ac.DB.Save(&user).Error; err != nil {
 		log.Printf("[Auth] Lỗi khi cập nhật user ID %d: %v\n", userID, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Failed to update profile",
+		})
 		return
 	}
 	log.Printf("[Auth] Cập nhật thành công profile cho user ID: %d\n", userID)
-	c.JSON(http.StatusOK, user.ToResponse())
+	c.JSON(http.StatusOK, UserResponse{
+		Success: true,
+		User:    user.ToResponse(),
+		Message: "Profile updated successfully",
+	})
 }
 
 func (ac *AuthController) ListUsers(c *gin.Context) {
 	var users []models.User
 	if err := ac.DB.Find(&users).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Failed to fetch users",
+		})
 		return
 	}
 
@@ -309,7 +384,11 @@ func (ac *AuthController) ListUsers(c *gin.Context) {
 		response = append(response, *user.ToResponse())
 	}
 
-	c.JSON(http.StatusOK, response)
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"users":   response,
+		"message": "Users fetched successfully",
+	})
 }
 
 func (ac *AuthController) CreateStaff(c *gin.Context) {
@@ -320,13 +399,13 @@ func (ac *AuthController) CreateStaff(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
 		return
 	}
 
 	hashedPassword, err := utils.HashPassword(input.Password)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to create user"})
 		return
 	}
 
@@ -338,11 +417,15 @@ func (ac *AuthController) CreateStaff(c *gin.Context) {
 	}
 
 	if err := ac.DB.Create(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create staff"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to create staff"})
 		return
 	}
 
-	c.JSON(http.StatusCreated, user.ToResponse())
+	c.JSON(http.StatusCreated, UserResponse{
+		Success: true,
+		User:    user.ToResponse(),
+		Message: "Create staff successfully",
+	})
 }
 
 func (ac *AuthController) ChangeUserRole(c *gin.Context) {
@@ -352,21 +435,25 @@ func (ac *AuthController) ChangeUserRole(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
 		return
 	}
 
 	var user models.User
 	if err := ac.DB.First(&user, userID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "User not found"})
 		return
 	}
 
 	user.Role = models.Role(input.Role)
 	if err := ac.DB.Save(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update role"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to update role"})
 		return
 	}
 
-	c.JSON(http.StatusOK, user.ToResponse())
+	c.JSON(http.StatusOK, UserResponse{
+		Success: true,
+		User:    user.ToResponse(),
+		Message: "Change user role successfully",
+	})
 }

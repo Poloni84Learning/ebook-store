@@ -1,16 +1,21 @@
 <script setup lang="ts">
-import { RouterView } from 'vue-router'
+import { RouterView, useRoute } from 'vue-router'
 import Navbar from './components/Navbar.vue'
 import Footer from './components/Footer.vue'
+import { useCartStore } from '@/stores/cart'
+
+const cartStore = useCartStore()
+cartStore.initializeCart()
+const route = useRoute()
 </script>
 
 <template>
   <div class="min-h-screen bg-blackBG font-sans">
-    <Navbar />
+    <Navbar  v-if="!route.meta.hideLayout" />
     <main class="w-full px-0">
       <RouterView />
     </main>
-    <Footer />
+    <Footer v-if="!route.meta.hideLayout"/>
   </div>
 </template>
 

@@ -28,7 +28,76 @@ const messages = {
       emailPlaceholder: 'Enter your email',
       subscribe: 'Subscribe',
       rights: 'All rights reserved.',
+    },
+    "checkout": {
+      "title": "Checkout",
+      "steps": {
+        "shipping": "Shipping Information",
+        "payment": "Payment Details",
+        "review": "Order Review"
+      },
+      "form": {
+        "name": "Full Name",
+        "email": "Email Address",
+        "address": "Shipping Address",
+        "city": "City",
+        "zip": "ZIP Code"
+      },
+      "orderSummary": {
+        "title": "Order Summary",
+        "subtotal": "Subtotal",
+        "shipping": "Shipping",
+        "total": "Total",
+        "checkoutButton": "Place Order"
+      },
+      "errors": {
+        "required": "This field is required",
+        "email": "Please enter a valid email"
+      },
+      "review": {
+      "shippingTitle": "Shipping Information",
+      "paymentTitle": "Payment Method",
+      "orderTitle": "Your Order",
+      "bankTransferNotice": "You will complete payment via bank transfer",
+      "codNotice": "You will pay cash when your order arrives",
+      "agreeTo": "I agree to the",
+      "terms": "Terms and Conditions"
+    },
+  },
+
+    "book": {
+      "by": "by"
+    },
+    orderHistory: {
+      title: "Your Orders",
+      "emptyMessage": "No orders found",
+      "orderId": "Order ID",
+      "orderDate": "Order Date",
+      "customerInfo": "Customer Information",
+      "shippingAddress": "Shipping Address",
+      "orderItems": "Order Items",
+      "subtotal": "Subtotal",
+      "shippingFee": "Shipping Fee",
+      "tax": "Tax",
+      "total": "Total",
+      "status": {
+        "processing": "Processing",
+        "completed": "Completed",
+        "pending": "Pending",
+        "cancelled": "Cancelled"
+      }
+    },
+    "common": {
+      "name": "Name",
+      "email": "Email",
+      "phone": "Phone",
+      "zipCode": "ZIP Code",
+      "quantity": "Quantity",
+      "each": "each",
+      "by":"by"
     }
+  
+    
   },
   ru: {
     home: {

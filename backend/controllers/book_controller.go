@@ -18,19 +18,21 @@ type BookController struct {
 }
 
 type BookWithOrderCount struct {
-	ID                   uint   `json:"id"`
-	Title                string `json:"title"`
-	Author               string `json:"author"`
-	CoverImage           string `json:"cover_image"`
-	CompletedOrdersCount int64  `json:"completed_orders_count"`
+	ID                   uint    `json:"id"`
+	Title                string  `json:"title"`
+	Author               string  `json:"author"`
+	CoverImage           string  `json:"cover_image"`
+	Price                float64 `json:"price"`
+	CompletedOrdersCount int64   `json:"completed_orders_count"`
 }
 
 type BookWithoutOrderCount struct {
-	ID                   uint   `json:"id"`
-	Title                string `json:"title"`
-	Author               string `json:"author"`
-	CoverImage           string `json:"cover_image"`
-	CompletedOrdersCount int64  `json:"-"`
+	ID                   uint    `json:"id"`
+	Title                string  `json:"title"`
+	Author               string  `json:"author"`
+	CoverImage           string  `json:"cover_image"`
+	Price                float64 `json:"price"`
+	CompletedOrdersCount int64   `json:"-"`
 }
 
 func NewBookController(db *gorm.DB, cfg *config.Config) *BookController {
@@ -47,14 +49,14 @@ func (bc *BookController) CreateBook(c *gin.Context) {
 	}
 
 	if userRole != string(models.RoleAdmin) && userRole != string(models.RoleStaff) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Không có quyền thực hiện"})
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "Không có quyền thực hiện"})
 		return
 	}
 
 	var input models.BookInput
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
 		return
 	}
 
@@ -73,11 +75,12 @@ func (bc *BookController) CreateBook(c *gin.Context) {
 
 	if err := bc.DB.Create(&book).Error; err != nil {
 		log.Printf("[DEBUG] Không thể tạo sách: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể tạo sách"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Không thể tạo sách"})
 		return
 	}
 
-	c.JSON(http.StatusCreated, book)
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": book})
+
 }
 
 func (bc *BookController) GetBooks(c *gin.Context) {
@@ -92,27 +95,35 @@ func (bc *BookController) GetBooks(c *gin.Context) {
 	bc.DB.Offset(offset).Limit(limit).Find(&books)
 
 	c.JSON(http.StatusOK, gin.H{
-		"data":  books,
-		"total": total,
-		"page":  page,
-		"limit": limit,
+		"success": true,
+		"data":    books,
+		"total":   total,
+		"page":    page,
+		"limit":   limit,
 	})
 }
 
 func (bc *BookController) GetBook(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID không hợp lệ"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "ID không hợp lệ"})
 		return
 	}
 
 	var book models.Book
 	if err := bc.DB.First(&book, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy sách"})
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Không tìm thấy sách"})
+		return
+	}
+	var totalReviews int64
+	err = bc.DB.Table("reviews").Where("book_id = ?", id).Count(&totalReviews).Error
+	if err != nil {
+		log.Printf("[DEBUG] Lỗi khi lấy tổng review: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Không thể lấy tổng số review"})
 		return
 	}
 
-	c.JSON(http.StatusOK, book)
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": book, "reviews_count": totalReviews})
 }
 
 func (bc *BookController) UpdateBook(c *gin.Context) {
@@ -120,25 +131,25 @@ func (bc *BookController) UpdateBook(c *gin.Context) {
 	userRole := c.GetString("role")
 	log.Printf("[DEBUG] Role trong context (UpdateBook): %s", userRole)
 	if userRole != string(models.RoleAdmin) && userRole != string(models.RoleStaff) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Không có quyền thực hiện"})
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "Không có quyền thực hiện"})
 		return
 	}
 
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID không hợp lệ"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "ID không hợp lệ"})
 		return
 	}
 
 	var input models.BookInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
 		return
 	}
 
 	var book models.Book
 	if err := bc.DB.First(&book, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy sách"})
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Không tìm thấy sách"})
 		return
 	}
 
@@ -155,11 +166,11 @@ func (bc *BookController) UpdateBook(c *gin.Context) {
 	book.Language = input.Language
 
 	if err := bc.DB.Save(&book).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể cập nhật sách"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Không thể cập nhật sách"})
 		return
 	}
 
-	c.JSON(http.StatusOK, book)
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": book})
 }
 
 func (bc *BookController) DeleteBook(c *gin.Context) {
@@ -168,24 +179,24 @@ func (bc *BookController) DeleteBook(c *gin.Context) {
 	var book models.Book
 	if err := bc.DB.First(&book, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy sách"})
+			c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Không tìm thấy sách"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Lỗi khi tìm sách"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Lỗi khi tìm sách"})
 		return
 	}
 
 	// Gọi hàm kiểm tra trước khi xoá
 	if err := models.SafeDeleteBook(bc.DB, book.ID); err != nil {
 		if errors.Is(err, models.ErrBookInActiveOrders) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Không thể xoá sách này vì sách đang nằm trong đơn hàng chưa xử lý!"})
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Không thể xoá sách này vì sách đang nằm trong đơn hàng chưa xử lý!"})
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Xảy ra lỗi khi xoá sách: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Xảy ra lỗi khi xoá sách: " + err.Error()})
 		}
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Xoá sách thành công"})
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Xoá sách thành công"})
 }
 
 func (bc *BookController) GetBookCombos(c *gin.Context) {
@@ -207,11 +218,12 @@ func (bc *BookController) GetBookCombos(c *gin.Context) {
 		Scan(&combos).Error
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch combos"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to fetch combos"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
+		"success": true,
 		"book_id": bookID,
 		"combos":  combos,
 	})
@@ -234,7 +246,7 @@ func (bc *BookController) GetTopBooksByCompletedOrders(c *gin.Context) {
 	case "year":
 		timeCondition = "orders.created_at  >= DATE_TRUNC('year', NOW())"
 	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Giá trị period không hợp lệ. Chọn week, month hoặc year"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Giá trị period không hợp lệ. Chọn week, month hoặc year"})
 		return
 	}
 
@@ -242,7 +254,7 @@ func (bc *BookController) GetTopBooksByCompletedOrders(c *gin.Context) {
 
 	err = bc.DB.
 		Table("order_items").
-		Select("books.id, books.title, books.author, books.cover_image, SUM(order_items.quantity) as completed_orders_count").
+		Select("books.id, books.title, books.author, books.cover_image, books.price, SUM(order_items.quantity) as completed_orders_count").
 		Joins("JOIN books ON order_items.book_id = books.id").
 		Joins("JOIN orders ON order_items.order_id = orders.id").
 		Where("orders.status = ? AND "+timeCondition, "completed").
@@ -253,11 +265,11 @@ func (bc *BookController) GetTopBooksByCompletedOrders(c *gin.Context) {
 
 	if err != nil {
 		log.Printf("[DEBUG] Lỗi khi lấy top sách: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lấy dữ liệu sách top order"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Không thể lấy dữ liệu sách top order"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(http.StatusOK, gin.H{"success": true,
 		"period": period,
 		"limit":  limit,
 		"data":   results,
@@ -268,7 +280,7 @@ func (bc *BookController) GetBooksByTitle(c *gin.Context) {
 	title := c.DefaultQuery("title", "")
 
 	if title == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Title is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Title is required"})
 		return
 	}
 
@@ -280,11 +292,11 @@ func (bc *BookController) GetBooksByTitle(c *gin.Context) {
 
 	if err != nil {
 		log.Printf("[DEBUG] Lỗi khi lấy sách theo title: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lấy sách theo title"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Không thể lấy sách theo title"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(http.StatusOK, gin.H{"success": true,
 		"data": books,
 	})
 }
@@ -293,7 +305,7 @@ func (bc *BookController) GetBooksByAuthor(c *gin.Context) {
 	author := c.DefaultQuery("author", "")
 
 	if author == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Author is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Author is required"})
 		return
 	}
 
@@ -305,11 +317,11 @@ func (bc *BookController) GetBooksByAuthor(c *gin.Context) {
 
 	if err != nil {
 		log.Printf("[DEBUG] Lỗi khi lấy sách theo author: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lấy sách theo author"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Không thể lấy sách theo author"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(http.StatusOK, gin.H{"success": true,
 		"data": books,
 	})
 }
@@ -317,24 +329,24 @@ func (bc *BookController) GetBooksByAuthor(c *gin.Context) {
 func (bc *BookController) GetBooksByCategory(c *gin.Context) {
 	categoryParam := c.Query("category")
 	if categoryParam == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Category is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Category is required"})
 		return
 	}
 
 	category := models.BookCategory(categoryParam)
 	if !category.IsValid() {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid category"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid category"})
 		return
 	}
 
 	var books []models.Book
 	if err := bc.DB.Where("category = ?", category).Find(&books).Error; err != nil {
 		log.Printf("[DEBUG] Lỗi khi lấy sách theo category: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lấy sách theo category"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Không thể lấy sách theo category"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": books})
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": books})
 }
 
 func (bc *BookController) SearchBooks(c *gin.Context) {
@@ -360,7 +372,7 @@ func (bc *BookController) SearchBooks(c *gin.Context) {
 	}
 
 	if err := query.Find(&books).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Lỗi khi tìm kiếm sách"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Lỗi khi tìm kiếm sách"})
 		return
 	}
 
@@ -386,14 +398,14 @@ func (bc *BookController) GetTopBooks(c *gin.Context) {
 	case "last-two-weeks":
 		timeCondition = "orders.created_at >= NOW() - INTERVAL '2 weeks' AND orders.created_at < NOW() - INTERVAL '1 week'"
 	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Giá trị period không hợp lệ"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Giá trị period không hợp lệ"})
 		return
 	}
 
 	var results []BookWithOrderCount
 	err = bc.DB.
 		Table("order_items").
-		Select("books.id, books.title, books.author, books.cover_image, SUM(order_items.quantity) as completed_orders_count").
+		Select("books.id, books.title, books.author, books.cover_image, books.price, SUM(order_items.quantity) as completed_orders_count").
 		Joins("JOIN books ON order_items.book_id = books.id").
 		Joins("JOIN orders ON order_items.order_id = orders.id").
 		Where("orders.status = ? AND "+timeCondition, "completed").
@@ -403,14 +415,15 @@ func (bc *BookController) GetTopBooks(c *gin.Context) {
 		Scan(&results).Error
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lấy dữ liệu sách bán chạy"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Không thể lấy dữ liệu sách bán chạy"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"period": period,
-		"limit":  limit,
-		"data":   results,
+		"success": true,
+		"period":  period,
+		"limit":   limit,
+		"data":    results,
 	})
 }
 
@@ -433,7 +446,7 @@ func (bc *BookController) GetTopCategories(c *gin.Context) {
 	case "last-two-weeks":
 		timeCondition = "orders.created_at >= NOW() - INTERVAL '2 weeks' AND orders.created_at < NOW() - INTERVAL '1 week'"
 	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Giá trị period không hợp lệ"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Giá trị period không hợp lệ"})
 		return
 	}
 
@@ -454,14 +467,15 @@ func (bc *BookController) GetTopCategories(c *gin.Context) {
 		Scan(&results).Error
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lấy dữ liệu category bán chạy"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Không thể lấy dữ liệu category bán chạy"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"period": period,
-		"limit":  limit,
-		"data":   results,
+		"success": true,
+		"period":  period,
+		"limit":   limit,
+		"data":    results,
 	})
 }
 
@@ -484,7 +498,7 @@ func (bc *BookController) GetTopAuthors(c *gin.Context) {
 	case "last-two-weeks":
 		timeCondition = "orders.created_at >= NOW() - INTERVAL '2 weeks' AND orders.created_at < NOW() - INTERVAL '1 week'"
 	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Giá trị period không hợp lệ"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Giá trị period không hợp lệ"})
 		return
 	}
 
@@ -505,14 +519,15 @@ func (bc *BookController) GetTopAuthors(c *gin.Context) {
 		Scan(&results).Error
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lấy dữ liệu author bán chạy"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Không thể lấy dữ liệu author bán chạy"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"period": period,
-		"limit":  limit,
-		"data":   results,
+		"success": true,
+		"period":  period,
+		"limit":   limit,
+		"data":    results,
 	})
 }
 
@@ -530,7 +545,9 @@ func (bc *BookController) GetTotalOrders(c *gin.Context) {
 	case "last-two-weeks":
 		timeCondition = "orders.created_at >= NOW() - INTERVAL '2 weeks' AND orders.created_at < NOW() - INTERVAL '1 week'"
 	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Giá trị period không hợp lệ"})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Giá trị period không hợp lệ"})
 		return
 	}
 
@@ -538,12 +555,28 @@ func (bc *BookController) GetTotalOrders(c *gin.Context) {
 	err := bc.DB.Model(&models.Order{}).Where(timeCondition).Count(&totalOrders).Error
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lấy tổng số đơn hàng"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Không thể lấy tổng số đơn hàng"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
+		"success":      true,
 		"period":       period,
 		"total_orders": totalOrders,
+	})
+}
+func (bc *BookController) GetAllCategories(c *gin.Context) {
+	categories := models.GetAllBookCategories()
+
+	var categoryStrings []string
+	for _, cat := range categories {
+		categoryStrings = append(categoryStrings, string(cat))
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    categoryStrings,
 	})
 }

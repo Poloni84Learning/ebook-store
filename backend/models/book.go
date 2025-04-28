@@ -172,3 +172,26 @@ var validCategories = map[BookCategory]bool{
 func (c BookCategory) IsValid() bool {
 	return validCategories[c]
 }
+
+func GetAllBookCategories() []BookCategory {
+	return []BookCategory{
+		CategoryFiction,
+		CategoryNonFiction,
+		CategoryScience,
+		CategoryMath,
+		CategoryTechnology,
+		CategoryHistory,
+		CategoryBiography,
+		CategoryPhilosophy,
+		CategorySelfHelp,
+		CategoryChildren,
+		CategoryEducation,
+		CategoryComics,
+		CategoryFantasy,
+		CategoryMystery,
+		CategoryHorror,
+		CategoryRomance,
+		CategoryBusiness,
+		CategoryProgramming,
+	}
+}

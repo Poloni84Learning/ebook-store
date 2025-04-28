@@ -21,7 +21,10 @@ func JWTAuthMiddleware(cfg *config.Config) gin.HandlerFunc {
 			c.Next()
 			return
 		}
-
+		if c.Request.Method == "OPTIONS" {
+			c.Next()
+			return
+		}
 		// Lấy token từ header
 		tokenString := utils.ExtractToken(c)
 		if tokenString == "" {
