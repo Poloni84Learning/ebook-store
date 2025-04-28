@@ -167,10 +167,11 @@
   }
 });
   async function handleSubmit() {
-    if (form.username.toLowerCase() === 'admin') {
-    error.value = 'Username "admin" is not allowed for register';
+  if (/^(admin|admin_|staff_)/i.test(form.username)) {
+
+    error.value = 'This username is not allowed for login';
     return;
-  }
+}
     try {
       isLoading.value = true;
       error.value = '';

@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -173,7 +174,6 @@ func (oc *OrderController) UserUpdateOrder(c *gin.Context) {
 	c.JSON(http.StatusOK, order)
 }
 
-// StaffUpdateOrder - Cập nhật trạng thái đơn hàng (dành cho staff/admin)
 func (oc *OrderController) StaffUpdateOrder(c *gin.Context) {
 	orderID := c.Param("id")
 
@@ -194,13 +194,8 @@ func (oc *OrderController) StaffUpdateOrder(c *gin.Context) {
 
 	// Cập nhật trạng thái
 	order.Status = input.Status
-
-	var updatedOrder models.Order
-	if err := oc.DB.
-		Preload("User").
-		Preload("OrderItems.Book").
-		First(&updatedOrder, orderID).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch updated order"})
+	if err := oc.DB.Save(&order).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update order status"})
 		return
 	}
 
@@ -222,6 +217,80 @@ func (oc *OrderController) GetUserOrders(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, orders)
+}
+
+// GetOrderTrends - Trả về xu hướng số lượng đơn hàng theo ngày/tuần/tháng
+func (oc *OrderController) GetOrderTrends(c *gin.Context) {
+	timeRange := c.Query("time_range") // "week", "month", "year"
+
+	now := time.Now()
+	var results []map[string]interface{}
+
+	switch timeRange {
+	case "week":
+		for i := 6; i >= 0; i-- { // 6 -> 0 (7 ngày)
+			day := now.AddDate(0, 0, -i)
+			startOfDay := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
+			endOfDay := startOfDay.AddDate(0, 0, 1)
+
+			var count int64
+			if err := oc.DB.Model(&models.Order{}).
+				Where("created_at >= ? AND created_at < ?", startOfDay, endOfDay).
+				Count(&count).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get order trends"})
+				return
+			}
+
+			results = append(results, map[string]interface{}{
+				"date":  startOfDay.Format("2006-01-02"),
+				"count": count,
+			})
+		}
+
+	case "month":
+		for i := 3; i >= 0; i-- { // 3 -> 0 (4 tuần)
+			weekStart := now.AddDate(0, 0, -7*i)
+			weekEnd := weekStart.AddDate(0, 0, 7)
+
+			var count int64
+			if err := oc.DB.Model(&models.Order{}).
+				Where("created_at >= ? AND created_at < ?", weekStart, weekEnd).
+				Count(&count).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get order trends"})
+				return
+			}
+
+			results = append(results, map[string]interface{}{
+				"week_start": weekStart.Format("2006-01-02"),
+				"count":      count,
+			})
+		}
+
+	case "year":
+		for i := 11; i >= 0; i-- { // 11 -> 0 (12 tháng)
+			monthStart := time.Date(now.Year(), now.Month()-time.Month(i), 1, 0, 0, 0, 0, now.Location())
+			monthEnd := monthStart.AddDate(0, 1, 0)
+
+			var count int64
+			if err := oc.DB.Model(&models.Order{}).
+				Where("created_at >= ? AND created_at < ?", monthStart, monthEnd).
+				Count(&count).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get order trends"})
+				return
+			}
+
+			results = append(results, map[string]interface{}{
+				"month": monthStart.Format("2006-01"),
+				"count": count,
+			})
+		}
+
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid time_range parameter"})
+		return
+	}
+
+	c.JSON(http.StatusOK, results)
 }
 
 // GetOrderDetails lấy chi tiết đơn hàng
@@ -262,6 +331,93 @@ func (oc *OrderController) GetAllOrders(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, orders)
+}
+
+// GetAllOrders - Lấy danh sách tất cả đơn hàng theo thời gian (week, month, year)
+func (oc *OrderController) GetAllOrdersDashboard(c *gin.Context) {
+	timeRange := c.Query("time_range") // "week", "month", "year"
+
+	startTime, err := getStartTime(timeRange)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var orders []models.Order
+	if err := oc.DB.
+		Preload("User").
+		Preload("OrderItems.Book").
+		Where("created_at >= ?", startTime).
+		Find(&orders).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get orders"})
+		return
+	}
+
+	c.JSON(http.StatusOK, orders)
+}
+
+// GetOrderStats - Lấy tổng số lượng đơn hàng, tổng số tiền và tổng số lượng sách đã bán theo thời gian (week, month, year)
+func (oc *OrderController) GetOrderStats(c *gin.Context) {
+	timeRange := c.Query("time_range") // "week", "month", "year"
+
+	startTime, err := getStartTime(timeRange)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var count int64
+	var totalAmount float64
+	var totalBooksSold int // Tổng số lượng sách đã bán
+
+	// Đếm số lượng đơn
+	if err := oc.DB.Model(&models.Order{}).
+		Where("created_at >= ?", startTime).
+		Count(&count).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count orders"})
+		return
+	}
+
+	// Tính tổng tiền
+	if err := oc.DB.Model(&models.Order{}).
+		Select("COALESCE(SUM(total_amount), 0)"). // nếu không có đơn sẽ trả về 0
+		Where("created_at >= ?", startTime).
+		Scan(&totalAmount).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to calculate total amount"})
+		return
+	}
+
+	// Tính tổng số lượng sách đã bán
+	if err := oc.DB.Model(&models.OrderItem{}).
+		Select("COALESCE(SUM(quantity), 0)").
+		Joins("JOIN orders ON orders.id = order_items.order_id").
+		Where("orders.created_at >= ?", startTime).
+		Scan(&totalBooksSold).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to calculate total books sold"})
+		return
+	}
+
+	// Trả về kết quả
+	c.JSON(http.StatusOK, gin.H{
+		"total_orders":     count,
+		"total_amount":     totalAmount,
+		"total_books_sold": totalBooksSold,
+	})
+}
+
+// getStartTime - helper tính mốc thời gian bắt đầu
+func getStartTime(timeRange string) (time.Time, error) {
+	now := time.Now()
+	switch timeRange {
+	case "week":
+		return now.AddDate(0, 0, -7), nil
+	case "month":
+		return now.AddDate(0, -1, 0), nil
+	case "year":
+		return now.AddDate(-1, 0, 0), nil
+	default:
+		return time.Time{}, fmt.Errorf("invalid time_range: must be 'week', 'month', or 'year'")
+	}
 }
 
 // monitorOrders - Tự động xử lý đơn hàng

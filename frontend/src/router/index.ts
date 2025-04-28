@@ -6,6 +6,8 @@ import BookInfo from '@/views/BookInfo.vue'
 import Checkout from '@/views/Checkout.vue'
 import OrderHistory from '@/views/OrderHistory.vue'
 import AdminLogin from '@/views/admin/AdminLogin.vue'
+import Dashboard from '@/views/admin/Dashboard.vue'
+import AddBook from '@/views/admin/AddBook.vue'
 
 const routes = [
   { path: '/', name: 'Home', component: Home },
@@ -73,7 +75,36 @@ const routes = [
     component: AdminLogin,
     meta: { hideLayout: true }
   },
-  
+  {
+    path:"/admin/dashboard",
+    name:"Admin Dashboard",
+    component: Dashboard,
+    meta: { hideLayout: true }
+  },
+  {
+    path: '/admin/books',
+    name: 'Admin Books',
+    component: () => import('@/views/admin/BookAdmin.vue'),
+    meta: { hideLayout: true }
+  },
+  {
+    path:"/admin/books/add",
+    name:"Admin Add Book",
+    component: AddBook,
+    meta: { hideLayout: true }
+  },
+  {
+    path: '/admin/books/view',
+    name: 'Book Management',
+    component: () => import('@/views/admin/ViewBook.vue'),
+    meta: { hideLayout: true }
+  },
+  {
+    path: '/admin/orders',
+    name: 'OrderManagement',
+    component: () => import('@/views/admin/OrderManagement.vue'),
+    meta: { hideLayout: true }
+  },
 ]
 
 const router = createRouter({

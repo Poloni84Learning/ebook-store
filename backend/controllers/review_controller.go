@@ -301,6 +301,48 @@ func (rc *ReviewController) GetTopRatedBooks(c *gin.Context) {
 	})
 }
 
+// GetBookCountAboveRating lấy tổng số lượng sách có avg rating >= 4.0
+func (rc *ReviewController) GetBookCountAboveRating(c *gin.Context) {
+	period := c.DefaultQuery("period", "")
+
+	var timeCondition string
+	switch period {
+	case "week":
+		timeCondition = "reviews.created_at >= DATE_TRUNC('week', NOW())"
+	case "month":
+		timeCondition = "reviews.created_at >= DATE_TRUNC('month', NOW())"
+	case "year":
+		timeCondition = "reviews.created_at >= DATE_TRUNC('year', NOW())"
+	case "":
+		timeCondition = "1=1"
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Giá trị period không hợp lệ. Chọn week, month hoặc year"})
+		return
+	}
+
+	var count int64
+
+	err := rc.DB.
+		Table("reviews").
+		Select("COUNT(DISTINCT books.id)").
+		Joins("JOIN books ON reviews.book_id = books.id").
+		Where(timeCondition).
+		Group("books.id").
+		Having("AVG(reviews.rating) >= 4.0").
+		Scan(&count).Error
+
+	if err != nil {
+		log.Printf("[DEBUG] Lỗi khi lấy tổng số lượng sách với rating >= 4.0: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lấy tổng số lượng sách có rating >= 4.0"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"period": period,
+		"count":  count,
+	})
+}
+
 // updateBookAverageRating cập nhật rating trung bình cho sách
 func (rc *ReviewController) updateBookAverageRating(bookID uint) {
 	var avgRating float64

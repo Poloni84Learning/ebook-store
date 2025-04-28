@@ -10,6 +10,10 @@ import (
 // RoleMiddleware tạo middleware kiểm tra role
 func RoleMiddleware(allowedRoles []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if c.Request.Method == "OPTIONS" {
+			c.Next()
+			return
+		}
 		// Lấy role từ context (đã được set bởi JWTAuthMiddleware)
 		userRole, exists := c.Get("role")
 		if !exists {

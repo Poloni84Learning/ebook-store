@@ -67,7 +67,7 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 			// Admin/Staff only
 			adminBook := book.Group("").Use(middlewares.RoleMiddleware([]string{"admin", "staff"}))
 			{
-				adminBook.POST("/", bookController.CreateBook)
+				adminBook.POST("", bookController.CreateBook)
 				adminBook.PUT("/:id", bookController.UpdateBook)
 				adminBook.DELETE("/:id", bookController.DeleteBook)
 			}
@@ -122,14 +122,17 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 				adminDashboard.GET("/top-categories", bookController.GetTopCategories)
 				adminDashboard.GET("/top-authors", bookController.GetTopAuthors)
 				adminDashboard.GET("/top-total-orders", bookController.GetTotalOrders)
-
+				adminDashboard.GET("/total-order", orderController.GetAllOrdersDashboard)
+				adminDashboard.GET("/total-stats", orderController.GetOrderStats)
+				adminDashboard.GET("/top-trending", reviewController.GetBookCountAboveRating)
+				adminDashboard.GET("/order-trend", orderController.GetOrderTrends)
 			}
 			adminSystemConfig := admin.Group("/system-config")
 			{
-				adminSystemConfig.POST("/", systemConfigController.CreateSystemConfig)
-				adminSystemConfig.GET("/", systemConfigController.GetSystemConfig)
-				adminSystemConfig.PUT("/", systemConfigController.UpdateSystemConfig)
-				adminSystemConfig.DELETE("/", systemConfigController.DeleteSystemConfig)
+				adminSystemConfig.POST("", systemConfigController.CreateSystemConfig)
+				adminSystemConfig.GET("", systemConfigController.GetSystemConfig)
+				adminSystemConfig.PUT("", systemConfigController.UpdateSystemConfig)
+				adminSystemConfig.DELETE("", systemConfigController.DeleteSystemConfig)
 			}
 
 		}
