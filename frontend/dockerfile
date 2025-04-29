@@ -1,0 +1,18 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files trước để tận dụng Docker cache layer
+COPY package.json package-lock.json ./
+
+# Cài đặt dependencies
+RUN npm install
+
+# Copy toàn bộ source code
+COPY . .
+
+# Expose cổng Vite dev server
+EXPOSE 5173
+
+# Chạy dev server với chế độ watch
+CMD ["npm", "run", "dev"]

@@ -46,6 +46,22 @@ services:
     env_file:
       - ./backend/.env
     restart: unless-stopped
-
+    
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"  # Vite dev server port
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_BASE_URL=http://backend:8081/api  # URL cho API calls
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+    restart: unless-stopped
+ 
 volumes:
   postgres_data:
