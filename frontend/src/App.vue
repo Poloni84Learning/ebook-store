@@ -2,20 +2,28 @@
 import { RouterView, useRoute } from 'vue-router'
 import Navbar from './components/Navbar.vue'
 import Footer from './components/Footer.vue'
+import HelperChat from './components/HelperChat.vue'
 import { useCartStore } from '@/stores/cart'
+import { computed } from 'vue'
 
 const cartStore = useCartStore()
 cartStore.initializeCart()
 const route = useRoute()
+
+
+const showHelperChat = computed(() => {
+  return !route.meta.hideHelper
+})
 </script>
 
 <template>
   <div class="min-h-screen bg-blackBG font-sans">
-    <Navbar  v-if="!route.meta.hideLayout" />
+    <Navbar v-if="!route.meta.hideLayout" />
     <main class="w-full px-0">
       <RouterView />
     </main>
-    <Footer v-if="!route.meta.hideLayout"/>
+    <Footer v-if="!route.meta.hideLayout" />
+    <HelperChat v-if="showHelperChat" />
   </div>
 </template>
 

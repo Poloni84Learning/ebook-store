@@ -14,22 +14,23 @@ const routes = [
   { path: '/login',
     name: 'Login',
     component: Login,
-    meta: { hideLayout: true }
+    meta: { hideLayout: true, hideHelper: true}
   },
   { path: '/register',
     name: 'Register',
     component: Register,
-    meta: { hideLayout: true }
+    meta: { hideLayout: true, hideHelper: true }
   },
   { path: '/checkout',
     name: 'Checkout',
     component: Checkout,
-    meta: { hideLayout: true }
+    meta: { hideLayout: true, hideHelper: true }
   },
   {
     path: '/profile',
     name: 'Profile',
-    component: () => import('@/views/ProfileView.vue')
+    component: () => import('@/views/ProfileView.vue'),
+    meta: { hideHelper: true }
     
   },
   {
@@ -62,48 +63,50 @@ const routes = [
   {
     path: '/cart',
     name: 'Cart',
-    component: () => import('@/views/Cart.vue').then(m => m.default || m)
+    component: () => import('@/views/Cart.vue').then(m => m.default || m),
+    meta: { hideHelper: true }
   },
   {
     path:"/order-history",
     name:"Order History",
-    component: OrderHistory
+    component: OrderHistory,
+    meta: { hideHelper: true }
   },
   {
     path:"/admin-login",
     name:"Admin Login",
     component: AdminLogin,
-    meta: { hideLayout: true }
+    meta: { hideLayout: true, hideHelper: true }
   },
   {
     path:"/admin/dashboard",
     name:"Admin Dashboard",
     component: Dashboard,
-    meta: { hideLayout: true }
+    meta: { hideLayout: true, hideHelper: true }
   },
   {
     path: '/admin/books',
     name: 'Admin Books',
     component: () => import('@/views/admin/BookAdmin.vue'),
-    meta: { hideLayout: true }
+    meta: { hideLayout: true, hideHelper: true }
   },
   {
     path:"/admin/books/add",
     name:"Admin Add Book",
     component: AddBook,
-    meta: { hideLayout: true }
+    meta: { hideLayout: true, hideHelper: true }
   },
   {
     path: '/admin/books/view',
     name: 'Book Management',
     component: () => import('@/views/admin/ViewBook.vue'),
-    meta: { hideLayout: true }
+    meta: { hideLayout: true, hideHelper: true }
   },
   {
     path: '/admin/orders',
     name: 'OrderManagement',
     component: () => import('@/views/admin/OrderManagement.vue'),
-    meta: { hideLayout: true }
+    meta: { hideLayout: true, hideHelper: true }
   },
 ]
 

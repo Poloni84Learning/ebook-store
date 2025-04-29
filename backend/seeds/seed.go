@@ -12,14 +12,19 @@ import (
 )
 
 func SeedAll(db *gorm.DB, cfg *config.Config) {
-	seedUsers(db)
-	seedBooks(db)
-	seedOrders(db)
-	seedCombos(db)
-	seedReviews(db)
-	log.Println("🌱 Database seeding completed!")
-}
+	// Kiểm tra xem đã có dữ liệu chưa
+	var count int64
+	db.Model(&models.User{}).Count(&count)
 
+	if count == 0 {
+		seedUsers(db)
+		seedBooks(db)
+		seedOrders(db)
+		seedCombos(db)
+		seedReviews(db)
+		log.Println("🌱 Database seeding completed!")
+	}
+}
 func seedUsers(db *gorm.DB) {
 	users := []models.User{
 		{
