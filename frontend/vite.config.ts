@@ -16,5 +16,11 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+    host: '0.0.0.0',  // Cho phép truy cập từ bên ngoài container
+    port: 5173,
+    strictPort: true,  // Bắt buộc dùng đúng cổng
+    watch: {
+      usePolling: true  // Cần thiết khi dùng Docker trên Windows/macOS
+    }
   },
   })

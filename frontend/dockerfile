@@ -15,4 +15,4 @@ COPY . .
 EXPOSE 5173
 
 # Chạy dev server với chế độ watch
-CMD ["npm", "run", "dev"]
+CMD ["npm", "run", "dev", "--", "--host"]

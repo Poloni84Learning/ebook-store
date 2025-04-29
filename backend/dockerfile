@@ -1,17 +1,28 @@
-FROM golang:1.23-alpine
+FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
 # Bật Go module
 ENV GO111MODULE=on
 
-COPY go.mod go.sum ./
-RUN go mod download
-
+# Copy toàn bộ source code vào trước
 COPY . .
 
+# Nếu go.mod không tồn tại, tạo mới và thêm các dependencies cơ bản
+RUN if [ ! -f go.mod ]; then \
+      go mod init github.com/Poloni84Learning/ebook-store && \
+      go get github.com/gin-gonic/gin@v1.9.1; \
+    fi
+
+# Đồng bộ dependencies (tạo go.sum nếu chưa có)
+RUN go mod tidy
+
+# Build ứng dụng
 RUN go build -o main .
 
+# Giai đoạn chạy
+FROM alpine:latest
+WORKDIR /root/
+COPY --from=builder /app/main .
 EXPOSE 8081
-
 CMD ["./main"]
