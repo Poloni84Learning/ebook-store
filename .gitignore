@@ -15,8 +15,6 @@ backend/*.test
 backend/coverage.txt
 
 # --- Environment Files ---
-backend/.env
-backend/.env.*
 !backend/.env.example
 
 # --- Database & Local Data ---
