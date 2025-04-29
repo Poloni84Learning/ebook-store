@@ -1,0 +1,394 @@
+### Variables
+@baseUrl = http://localhost:8081/api
+@adminToken = {{loginAdmin.response.body.token}}
+@staffToken = {{loginStaff.response.body.token}}
+@customerToken = {{loginCustomer.response.body.token}}
+
+### 1. Authentication ###
+
+# Register user
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "customer5",
+  "email":"cus5@mail.ru",
+  "password": "Customer@123"
+}
+
+
+###
+
+# Login as admin (pre-seeded)
+# @name loginAdmin
+POST {{baseUrl}}/auth/staff-login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "Admin@123"
+}
+
+###
+
+# Logout as admin
+# @name logoutAdmin
+POST {{baseUrl}}/auth/logout
+Authorization: Bearer {{adminToken}}
+###
+
+# Login as staff (pre-seeded)
+# @name loginStaff
+POST {{baseUrl}}/auth/staff-login
+Content-Type: application/json
+
+{
+  "username": "staff1",
+  "password": "Staff@123"
+}
+
+###
+
+# Logout as staff
+# @name logoutStaff
+POST {{baseUrl}}/auth/logout
+Authorization: Bearer {{staffToken}}
+
+###
+
+# Login as customer (pre-seeded)
+# @name loginCustomer
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "username": "customer1",
+  "password": "Customer@123"
+}
+
+###
+
+# Logout as customer
+# @name logoutCustomer
+POST {{baseUrl}}/auth/logout
+Authorization: Bearer {{customerToken}}
+
+###
+
+# [CUSTOMER] Get profile
+GET {{baseUrl}}/user/profile
+Authorization: Bearer {{customerToken}}
+
+###
+
+# [CUSTOMER] Update profile
+PUT {{baseUrl}}/user/profile
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "first_name":"Pham",
+  "last_name":"Anh Tu",
+  "email":"kogiong1@gmail.com",
+  "address":"Vinhomes"
+}
+
+###
+
+#[ADMIN] Get list user
+GET {{baseUrl}}/admin/users
+Authorization: Bearer {{adminToken}}
+
+###
+
+#[ADMIN] Create new account staff
+# @name createStaff
+POST {{baseUrl}}/admin/users
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "username":"staff2",
+  "email":"staff2@mail.com",
+  "password":"Staff@123"
+}
+
+###
+
+#[ADMIN] Change staff role
+PUT {{baseUrl}}/admin/users/4/role
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "role":"customer"
+}
+
+### 2. Book Endpoints ###
+# [PUBLIC] Get all books
+GET {{baseUrl}}/books
+
+###
+
+# [PUBLIC] Get all books
+GET {{baseUrl}}/categories
+
+###
+
+# [PUBLIC] Get single book by ID
+GET {{baseUrl}}/books/16
+###
+
+# [PUBLIC] Get single book by title
+GET {{baseUrl}}/books/by-title?title=Clean+Code
+
+###
+# [PUBLIC] Get single book by authur
+GET {{baseUrl}}/books/by-author?author=Robert+Martin
+###
+
+# [PUBLIC] Get single book by category
+GET {{baseUrl}}/books/by-category?category=Programming
+
+###
+
+# [PUBLIC] Get single book 
+GET {{baseUrl}}/books/search?category=H&title=H&author=h&description=H
+
+###
+
+# [PUBLIC] Get all combo of book by ID book
+GET {{baseUrl}}/books/1/combos
+###
+
+# [PUBLIC] Get all reviews of book by ID book
+GET {{baseUrl}}/books/1/reviews
+
+### most-reviewed
+# 
+
+GET {{baseUrl}}/books/most-reviewed?limit=4
+
+
+
+
+### most-reviewed month
+# 
+
+GET {{baseUrl}}/books/most-reviewed?period=month
+
+### top sell
+#
+GET {{baseUrl}}/books/top-selling?period=week
+
+### top rate
+#
+GET {{baseUrl}}/books/top-rated?period=week
+
+###
+
+# [ADMIN/STAFF] Create new book - Success
+# @name createBook
+POST {{baseUrl}}/books
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "title": "Clean Code 3",
+  "author": "Robert C. Martin",
+  "description": "A handbook of agile software craftsmanship.",
+  "price": 19.99,
+  "stock": 10,
+  "category": "Programming",
+  "publisher": "Prentice Hall",
+  "isbn": "9780136326885",
+  "pages": 464,
+  "language": "English",
+  "cover_image":""
+}
+
+
+###
+
+# [ADMIN/STAFF] Update book - Success
+PUT {{baseUrl}}/books/{{createBook.response.body.ID}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "title": "The Go Programming Language (Updated)",
+  "author": "Alan Donovan",
+  "description": "Updated version",
+  "price": 49.99,
+  "stock": 45,
+  "category": "Programming",
+  "pages": 380,
+  "isbn": "9780134190440",
+  "publisher": "Addison-Wesley",
+  "language": "English"
+}
+
+
+###
+
+# [ADMIN] Delete book - Success
+DELETE {{baseUrl}}/books/4
+Authorization: Bearer {{adminToken}}
+
+
+### Tạo review
+#
+POST {{baseUrl}}/books/1/reviews
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+{
+  "book_id":1,
+  "rating":5,
+  "comment":"rat rat hay"
+}
+
+### 3.Order Endpoints ###
+
+# [CUSTOMER] Create new order
+# @name createOrder
+POST {{baseUrl}}/orders
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+{
+  "order_items": [
+    {
+      "book_id": 1,
+      "quantity": 2
+    },
+    {
+      "book_id": 3,
+      "quantity": 1
+    }
+  ],
+  "payment_method": "COD"
+}
+
+###
+
+# [CUSTOMER] Get all user's orders
+
+GET {{baseUrl}}/orders
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+###
+
+# [CUSTOMER] Get order's details
+
+GET {{baseUrl}}/orders/{{createOrder.response.body.data.ID}}
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+###
+
+# [CUSTOMER] Update order's details
+PUT {{baseUrl}}/orders/{{createOrder.response.body.ID}}
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+{
+  "order_items": [
+    {
+      "book_id": 2,
+      "quantity": 1
+    }
+  ],
+  "payment_method": "BankTransfer"
+}
+###
+
+# [STAFF/ADMIN] Get all orders
+
+GET {{baseUrl}}/orders/all
+Authorization: Bearer {{adminToken}}
+
+###
+
+# [STAFF/ADMIN] Update order's status
+PUT {{baseUrl}}/orders/1/status
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "status":"pending"
+}
+
+### 4. Combo Book Endpoints ###
+# Tạo combo
+# @name createCombo
+POST {{baseUrl}}/combos
+Content-Type: application/json
+Authorization: Bearer {{staffToken}}
+
+{
+  "title":"TFT",
+  "description":"Huong dan len cao thu",
+  "book_ids": [1, 2]
+}
+###
+#Sửa combo
+PUT {{baseUrl}}/combos/{{createCombo.response.body.data.ID}}
+Content-Type: application/json
+Authorization: Bearer {{staffToken}}
+
+{
+  "title":"TFT no 2",
+  "description":"Huong dan len thach dau",
+  "book_ids": [1, 2, 3]
+}
+###
+#Xem all combo
+GET {{baseUrl}}/combos
+
+###
+#Xem cụ thể combo
+GET {{baseUrl}}/combos/2
+
+###
+#xóa
+DELETE {{baseUrl}}/combos/{{createCombo.response.body.data.ID}}
+Authorization: Bearer {{staffToken}}
+
+### Dashboard
+#
+GET {{baseUrl}}/admin/dashboard/top-books
+Authorization: Bearer {{adminToken}}
+### Dashboard
+#
+GET {{baseUrl}}/admin/dashboard/top-categories
+Authorization: Bearer {{adminToken}}
+### Dashboard
+#
+GET {{baseUrl}}/admin/dashboard/top-authors
+Authorization: Bearer {{adminToken}}
+### Dashboard
+#
+GET {{baseUrl}}/admin/dashboard/top-total-orders?period=yesterday
+Authorization: Bearer {{adminToken}}
+
+### Dashboard
+#
+GET {{baseUrl}}/admin/dashboard/total-order?time_range=week
+Authorization: Bearer {{adminToken}}
+
+### Dashboard
+#
+GET {{baseUrl}}/admin/dashboard/total-stats?time_range=week
+Authorization: Bearer {{adminToken}}
+
+### Dashboard
+#
+GET {{baseUrl}}/admin/dashboard/top-trending?period=week
+Authorization: Bearer {{adminToken}}
+
+### Dashboard
+#
+GET {{baseUrl}}/admin/dashboard/order-trend?time_range=week
+Authorization: Bearer {{adminToken}}

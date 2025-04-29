@@ -42,13 +42,6 @@ Thumbs.db
 docker-compose.override.yml
 backend/docker-compose.*.yml
 
-# --- Seed Files ---
-backend/seed/*.seed
-!backend/seed/seed.go
-
-# --- Development Artifacts ---
-backend/api-test.http
-
 # --- Frontend Vue.js ---
 
 # Dependency directories
