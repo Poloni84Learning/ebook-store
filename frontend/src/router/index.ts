@@ -104,8 +104,20 @@ const routes = [
   },
   {
     path: '/admin/orders',
-    name: 'OrderManagement',
+    name: 'Order Management',
     component: () => import('@/views/admin/OrderManagement.vue'),
+    meta: { hideLayout: true, hideHelper: true }
+  },
+  {
+    path: '/admin/config',
+    name: 'Config Management',
+    component: () => import('@/views/admin/ConfigAdmin.vue'),
+    meta: { hideLayout: true, hideHelper: true }
+  },
+  {
+    path: '/admin/staffs',
+    name: 'Staff Management',
+    component: () => import('@/views/admin/StaffAdmin.vue'),
     meta: { hideLayout: true, hideHelper: true }
   },
 ]

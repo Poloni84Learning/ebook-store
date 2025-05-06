@@ -1,20 +1,35 @@
 package controllers
 
 import (
+	"bytes"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/Poloni84Learning/ebook-store/config"
 	"github.com/Poloni84Learning/ebook-store/models"
 	"github.com/gin-gonic/gin"
+	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
 
 type BookController struct {
-	DB     *gorm.DB
-	Config *config.Config
+	DB         *gorm.DB
+	Config     *config.Config
+	tempTokens map[string]string // Dùng cho demo
+	sync.Mutex
 }
 
 type BookWithOrderCount struct {
@@ -35,12 +50,19 @@ type BookWithoutOrderCount struct {
 	CompletedOrdersCount int64   `json:"-"`
 }
 
+type PDFExtractionResult struct {
+	Keywords  []string `json:"keywords"`
+	TocTitles []string `json:"toc_titles"`
+	Status    string   `json:"status"`
+	Message   string   `json:"message,omitempty"`
+}
+
 func NewBookController(db *gorm.DB, cfg *config.Config) *BookController {
-	return &BookController{DB: db, Config: cfg}
+	return &BookController{DB: db, Config: cfg, tempTokens: make(map[string]string)}
 }
 
 func (bc *BookController) CreateBook(c *gin.Context) {
-	// Kiểm tra role từ JWT middleware
+	// 1. Kiểm tra quyền
 	userRole := c.GetString("role")
 	if userRole == "" {
 		log.Println("[DEBUG] Role trong context rỗng hoặc chưa set")
@@ -53,34 +75,358 @@ func (bc *BookController) CreateBook(c *gin.Context) {
 		return
 	}
 
-	var input models.BookInput
-
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+	// 2. Parse form data với giới hạn kích thước file
+	if err := c.Request.ParseMultipartForm(32 << 20); err != nil { // 32MB max
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Không thể parse form data", "details": err.Error()})
 		return
 	}
 
+	// 3. Lấy các giá trị từ form
+	formValues := map[string]string{
+		"title":        c.PostForm("title"),
+		"author":       c.PostForm("author"),
+		"description":  c.PostForm("description"),
+		"price":        c.PostForm("price"),
+		"stock":        c.PostForm("stock"),
+		"category":     c.PostForm("category"),
+		"publisher":    c.PostForm("publisher"),
+		"isbn":         c.PostForm("isbn"),
+		"pages":        c.PostForm("pages"),
+		"language":     c.PostForm("language"),
+		"published_at": c.PostForm("published_at"),
+		"toc_pages":    c.PostForm("toc_pages"), // Thay đổi từ "toc" thành "toc_pages"
+	}
+
+	// 4. Validate các trường bắt buộc
+	// for field, value := range formValues {
+	// 	if value == "" && field != "published_at" { // published_at có thể optional
+	// 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Thiếu trường bắt buộc: %s", field)})
+	// 		return
+	// 	}
+	// }
+
+	// 5. Convert kiểu dữ liệu
+	price, err := strconv.ParseFloat(formValues["price"], 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Giá tiền không hợp lệ"})
+		return
+	}
+
+	stock, err := strconv.Atoi(formValues["stock"])
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Số lượng không hợp lệ"})
+		return
+	}
+
+	pages, err := strconv.Atoi(formValues["pages"])
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Số trang không hợp lệ"})
+		return
+	}
+
+	// 6. Xử lý file PDF
+	pdfFile, err := c.FormFile("pdf")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Thiếu file PDF", "details": err.Error()})
+		return
+	}
+	var imageUrl string
+	if imageFile, err := c.FormFile("cover_image"); err == nil {
+		// Lưu file ảnh
+		imageUrl, err = SaveImageFile(imageFile)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lưu ảnh", "details": err.Error()})
+			return
+		}
+	}
+
+	// 7. Lưu file PDF tạm để xử lý
+	tempPDFPath, err := saveTempFile(pdfFile)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lưu file tạm", "details": err.Error()})
+		return
+	}
+	defer os.Remove(tempPDFPath) // Xóa file tạm sau khi xử lý xong
+
+	// 10. Lưu file PDF vĩnh viễn
+	pdfUrl, err := SavePDFFile(pdfFile)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lưu file PDF", "details": err.Error()})
+		return
+	}
+
+	// --- Gọi API để lấy keywords và toc_titles ---
+	keywords, tocTitles, err := callKeywordAndTOCApi(tempPDFPath, formValues["title"], formValues["author"], string(formValues["category"]), formValues["toc_pages"])
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lấy dữ liệu phân tích PDF", "details": err.Error()})
+		return
+	}
+	// 11. Tạo book record
 	book := models.Book{
-		Title:       input.Title,
-		Author:      input.Author,
-		Description: input.Description,
-		Price:       input.Price,
-		Stock:       input.Stock,
-		Category:    input.Category,
-		Publisher:   input.PublishedAt,
-		ISBN:        input.ISBN,
-		Pages:       input.Pages,
-		Language:    input.Language,
+		Title:       formValues["title"],
+		Author:      formValues["author"],
+		Description: formValues["description"],
+		Price:       price,
+		Stock:       stock,
+		Category:    models.BookCategory(formValues["category"]),
+		Publisher:   formValues["publisher"],
+		ISBN:        formValues["isbn"],
+		Pages:       pages,
+		Language:    formValues["language"],
+		PublishedAt: formValues["published_at"],
+		PDFUrl:      pdfUrl,
+		CoverImage:  imageUrl,
+		Keywords:    keywords,
+		TOCTitles:   tocTitles,
 	}
 
 	if err := bc.DB.Create(&book).Error; err != nil {
-		log.Printf("[DEBUG] Không thể tạo sách: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Không thể tạo sách"})
+		log.Printf("[ERROR] Failed to create book: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Không thể tạo sách",
+			"details": err.Error(),
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": book})
+	// 12. Trả về response
+	c.JSON(http.StatusCreated, gin.H{
+		"success": true,
+		"data": gin.H{
+			"book":       book,
+			"keywords":   keywords,
+			"toc_titles": tocTitles,
+		},
+	})
+}
 
+func callKeywordAndTOCApi(pdfPath, title, author, topic, tocPages string) (pq.StringArray, pq.StringArray, error) {
+
+	file, err := os.Open(pdfPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("mở file PDF thất bại: %w", err)
+	}
+	defer file.Close()
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	// file
+	part, err := writer.CreateFormFile("file", filepath.Base(pdfPath))
+	if err != nil {
+		return nil, nil, fmt.Errorf("tạo form file thất bại: %w", err)
+	}
+	if _, err := io.Copy(part, file); err != nil {
+		return nil, nil, fmt.Errorf("ghi dữ liệu file thất bại: %w", err)
+	}
+
+	// required fields
+	_ = writer.WriteField("book_title", title)
+	_ = writer.WriteField("authors", author)
+	_ = writer.WriteField("topic", topic)
+
+	// optional
+	if tocPages != "" {
+		_ = writer.WriteField("toc_pages", tocPages)
+	}
+
+	if err := writer.Close(); err != nil {
+		return nil, nil, fmt.Errorf("đóng writer thất bại: %w", err)
+	}
+
+	// Gửi request
+	apiURL := fmt.Sprintf("%s/extract-keywords", getAPIBaseURL())
+	req, err := http.NewRequest("POST", apiURL, body) // chỉnh lại URL phù hợp
+	if err != nil {
+		return nil, nil, fmt.Errorf("tạo request thất bại: %w", err)
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	// 4. Cấu hình HTTP client
+	client := &http.Client{
+		Timeout: 0, // Vô hiệu hóa timeout
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, nil, fmt.Errorf("gửi request thất bại: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		responseBody, _ := io.ReadAll(resp.Body)
+		return nil, nil, fmt.Errorf("API trả về lỗi %d: %s", resp.StatusCode, string(responseBody))
+	}
+
+	var result struct {
+		Keywords  []string `json:"keywords"`
+		TOCTitles []string `json:"toc_titles"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, nil, fmt.Errorf("decode JSON thất bại: %w", err)
+	}
+	keywords := pq.StringArray(result.Keywords)
+	tocTitles := pq.StringArray(result.TOCTitles)
+	return keywords, tocTitles, nil
+}
+
+func getAPIBaseURL() string {
+	// Khi chạy trong Docker (tự động phát hiện)
+	if _, err := os.Stat("/.dockerenv"); err == nil {
+		return "http://host.docker.internal:8001" // Cho Windows/Mac Docker
+	}
+	return "http://localhost:8001" // Khi chạy trực tiếp
+}
+
+// Helper function để lưu file tạm
+func saveTempFile(file *multipart.FileHeader) (string, error) {
+	src, err := file.Open()
+	if err != nil {
+		return "", err
+	}
+	defer src.Close()
+
+	tempFile, err := os.CreateTemp("", "upload-*.pdf")
+	if err != nil {
+		return "", err
+	}
+	defer tempFile.Close()
+
+	if _, err := io.Copy(tempFile, src); err != nil {
+		return "", err
+	}
+
+	return tempFile.Name(), nil
+}
+
+func (bc *BookController) GenerateDownloadLink(c *gin.Context) {
+	// Lấy bookID từ URL params
+	bookIDStr := c.Param("id")
+	var bookID uint
+	if _, err := fmt.Sscanf(bookIDStr, "%d", &bookID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID sách không hợp lệ"})
+		return
+	}
+
+	// Tạo token ngẫu nhiên
+	tokenBytes := make([]byte, 16)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Lỗi hệ thống"})
+		return
+	}
+	token := hex.EncodeToString(tokenBytes)
+
+	// Lưu token vào map với mutex
+	bc.Lock()
+	bc.tempTokens[token] = bookIDStr // Lưu dưới dạng string để tiện xử lý
+	bc.Unlock()
+
+	// Tạo URL tải về (sử dụng config nếu có, hoặc localhost:8081)
+	baseURL := "http://localhost:8081"
+	downloadURL := fmt.Sprintf("%s/api/books/download/%s", baseURL, token)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":      true,
+		"download_url": downloadURL,
+		"expires_in":   "1 hour", // Thời gian hết hạn
+	})
+
+	// Tự động xóa token sau 1 giờ
+	time.AfterFunc(1*time.Hour, func() {
+		bc.Lock()
+		delete(bc.tempTokens, token)
+		bc.Unlock()
+	})
+}
+
+func (bc *BookController) DownloadFile(c *gin.Context) {
+	token := c.Param("token")
+
+	// Lấy bookID từ tempTokens
+	bc.Lock()
+	bookIDStr, exists := bc.tempTokens[token]
+	if exists {
+		delete(bc.tempTokens, token) // Xóa token sau khi dùng
+	}
+	bc.Unlock()
+
+	if !exists {
+		c.JSON(http.StatusNotFound, gin.H{
+			"success": false,
+			"error":   "Link tải không hợp lệ hoặc đã hết hạn",
+		})
+		return
+	}
+
+	// Chuyển đổi bookID sang uint
+	var bookID uint
+	if _, err := fmt.Sscanf(bookIDStr, "%d", &bookID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Lỗi hệ thống",
+		})
+		return
+	}
+
+	// Lấy thông tin sách từ database
+	var book models.Book
+	if err := bc.DB.First(&book, bookID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"success": false,
+			"error":   "Không tìm thấy sách",
+		})
+		return
+	}
+	log.Println("PDF URL from DB:", book.PDFUrl)
+
+	relativePath := strings.TrimPrefix(book.PDFUrl, "/storage/")
+	absolutePath := filepath.Join("/app/storage", relativePath)
+
+	log.Println("Absolute path to file:", absolutePath)
+
+	if _, err := os.Stat(absolutePath); os.IsNotExist(err) {
+		c.JSON(http.StatusNotFound, gin.H{
+			"success": false,
+			"error":   "File PDF không tồn tại",
+			"debug":   absolutePath,
+		})
+		return
+	}
+
+	// Mở file
+	file, err := os.Open(absolutePath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Không thể mở file",
+		})
+		return
+	}
+	defer file.Close()
+
+	// Lấy thông tin file
+	fileInfo, err := file.Stat()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Không thể đọc thông tin file",
+		})
+		return
+	}
+
+	// Thiết lập headers
+	fileName := fmt.Sprintf("%s_%s.pdf", book.Title, book.Author)
+	fileName = strings.ReplaceAll(fileName, " ", "_") // Thay thế khoảng trắng
+	c.Header("Content-Description", "File Transfer")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
+	c.Header("Content-Type", "application/pdf")
+	c.Header("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
+
+	// Gửi file
+	if _, err := io.Copy(c.Writer, file); err != nil {
+		log.Printf("Lỗi khi gửi file: %v", err)
+	}
 }
 
 func (bc *BookController) GetBooks(c *gin.Context) {
@@ -197,6 +543,77 @@ func (bc *BookController) DeleteBook(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Xoá sách thành công"})
+}
+
+func SavePDFFile(file *multipart.FileHeader) (string, error) {
+	uploadRoot := os.Getenv("UPLOAD_ROOT")
+	if uploadRoot == "" {
+		uploadRoot = "./storage" // fallback
+	}
+	log.Println("UPLOAD_ROOT:", uploadRoot)
+
+	filename := fmt.Sprintf("%d_%s", time.Now().UnixNano(), filepath.Base(file.Filename))
+	savePath := filepath.Join(uploadRoot, "pdf", filename)
+	log.Println("Save path:", savePath)
+
+	if err := os.MkdirAll(filepath.Dir(savePath), os.ModePerm); err != nil {
+		log.Println("MkdirAll error:", err)
+		return "", err
+	}
+
+	if err := saveUploadedFile(file, savePath); err != nil {
+		log.Println("Save file error:", err)
+		return "", err
+	}
+
+	log.Println("File saved successfully:", savePath)
+	publicURL := "/storage/pdf/" + filename
+	return publicURL, nil
+}
+
+func SaveImageFile(file *multipart.FileHeader) (string, error) {
+	uploadRoot := os.Getenv("UPLOAD_ROOT")
+	if uploadRoot == "" {
+		uploadRoot = "./storage" // fallback
+	}
+
+	// Tạo tên file độc đáo với timestamp
+	filename := fmt.Sprintf("%d_%s", time.Now().UnixNano(), filepath.Base(file.Filename))
+
+	// Đường dẫn lưu trong thư mục images
+	savePath := filepath.Join(uploadRoot, "images", filename)
+
+	// Tạo thư mục nếu chưa tồn tại
+	if err := os.MkdirAll(filepath.Dir(savePath), os.ModePerm); err != nil {
+		return "", fmt.Errorf("failed to create directory: %v", err)
+	}
+
+	// Lưu file
+	if err := saveUploadedFile(file, savePath); err != nil {
+		return "", fmt.Errorf("failed to save image: %v", err)
+	}
+
+	// Trả về đường dẫn public
+	publicURL := "/storage/images/" + filename
+	return publicURL, nil
+}
+
+// Hàm save an toàn hơn cho gin
+func saveUploadedFile(file *multipart.FileHeader, dst string) error {
+	src, err := file.Open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, src)
+	return err
 }
 
 func (bc *BookController) GetBookCombos(c *gin.Context) {
@@ -578,5 +995,89 @@ func (bc *BookController) GetAllCategories(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data":    categoryStrings,
+	})
+}
+
+func (bc *BookController) GetKeywordsAndTOC(c *gin.Context) {
+	bookID := c.Param("id")
+
+	var book models.Book
+	if err := bc.DB.First(&book, bookID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy sách"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"keywords":   book.Keywords,
+			"toc_titles": book.TOCTitles,
+		},
+	})
+}
+
+func (bc *BookController) UpdateKeywordsAndTOC(c *gin.Context) {
+	bookID := c.Param("id")
+
+	var request struct {
+		Keywords  []string `json:"keywords"`
+		TOCTitles []string `json:"toc_titles"`
+	}
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Dữ liệu không hợp lệ"})
+		return
+	}
+
+	result := bc.DB.Model(&models.Book{}).Where("id = ?", bookID).Updates(map[string]interface{}{
+		"keywords":   pq.StringArray(request.Keywords),
+		"toc_titles": pq.StringArray(request.TOCTitles),
+	})
+
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Cập nhật thất bại"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Cập nhật thành công",
+	})
+}
+
+func (bc *BookController) SearchByKeywords(c *gin.Context) {
+	searchTerm := strings.TrimSpace(c.Query("q"))
+	if searchTerm == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Thiếu từ khóa tìm kiếm"})
+		return
+	}
+
+	// Loại bỏ các từ khóa trống trong mảng keywords và toc_titles
+	cleanSearchTerm := strings.ToLower(searchTerm)
+
+	var books []models.Book
+	err := bc.DB.Where(
+		`(EXISTS (
+            SELECT 1 FROM unnest(keywords) AS k 
+            WHERE k <> '' AND LOWER(k) LIKE ?
+        ) OR EXISTS (
+            SELECT 1 FROM unnest(toc_titles) AS t 
+            WHERE t <> '' AND LOWER(t) LIKE ?
+        ))`,
+		"%"+cleanSearchTerm+"%",
+		"%"+cleanSearchTerm+"%",
+	).Find(&books).Error
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Lỗi tìm kiếm",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    books,
 	})
 }

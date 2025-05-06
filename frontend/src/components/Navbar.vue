@@ -49,12 +49,33 @@ const onSearch = () => {
     showSearch.value = false
   }
 }
-const logout = () => {
-  localStorage.removeItem('authToken')
-  localStorage.removeItem('user')
-  router.push('/').then(() => {
-    window.location.reload()
-  })
+const logout = async () => {
+  try {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      // Send logout request to server
+      await axios.post(`${apiUrl}/api/auth/logout`, null, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+    }
+    
+    // Clear local storage and redirect
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    router.push('/').then(() => {
+      window.location.reload();
+    });
+  } catch (error) {
+    console.error('Error during logout:', error);
+    // Even if logout API fails, we still clear local storage and redirect
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    router.push('/').then(() => {
+      window.location.reload();
+    });
+  }
 }
 const dropdownRef = ref<HTMLElement | null>(null)
 
@@ -255,7 +276,7 @@ onMounted(() => {
 
         <!-- Nếu chưa đăng nhập -->
         <template v-else>
-          <router-link to="/login" class="bg-primary text-secondary px-4 py-2 rounded-md font-bold">
+          <router-link to="/login" class="bg-primary text-secondary px-4 py-2 rounded-md font-bold hover:bg-white">
             {{ t('login') }}
           </router-link>
         </template>

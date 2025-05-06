@@ -21,6 +21,8 @@ services:
     build: 
       context: ./backend
       dockerfile: Dockerfile
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       DB_HOST: ${DB_HOST:-db}
       DB_PORT: ${DB_PORT:-5432}
@@ -32,12 +34,14 @@ services:
       SSL_MODE: ${SSL_MODE:-disable}
       MAX_DB_CONN: ${MAX_DB_CONN:-20}
       DEBUG_MODE: ${DEBUG_MODE:-true}
-      TZ: ${TIME_ZONE:-Asia/Ho_Chi_Minh}  # Đồng bộ múi giờ
+      TZ: ${TIME_ZONE:-Asia/Ho_Chi_Minh}
+      UPLOAD_ROOT: /app/storage
+      DOCKER_NETWORK_ENABLED: true
     ports:
       - "${SERVER_PORT:-8081}:8081"
     volumes:
       - ./backend/seeds/covers:/app/public/uploads/covers
-      - ./backend/public/default-cover.jpg:/app/public/uploads/default-cover.jpg
+      - ./storage:/app/storage 
     depends_on:
       db:
         condition: service_healthy
@@ -45,21 +49,22 @@ services:
       - ./backend/.env
     restart: unless-stopped
     
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - "5173:5173"  # Vite dev server port
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    environment:
-      - VITE_API_BASE_URL=http://backend:8081 # URL cho API calls
-      - CHOKIDAR_USEPOLLING=true
-    depends_on:
-      - backend
-    restart: unless-stopped
+    
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "5173:5173"  # Vite dev server port
+  #   volumes:
+  #     - ./frontend:/app
+  #     - /app/node_modules
+  #   environment:
+  #     - VITE_API_BASE_URL=http://backend:8081 # URL cho API calls
+  #     - CHOKIDAR_USEPOLLING=true
+  #   depends_on:
+  #     - backend
+  #   restart: unless-stopped
  
 volumes:
   postgres_data:

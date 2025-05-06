@@ -107,7 +107,7 @@
                 <input
                   v-model="form.publisher"
                   type="text"
-                  required
+                
                   class="p-2 border w-full rounded-md focus:outline-none focus:ring focus:border-blue-300"
                   placeholder="Publisher Name"
                 />
@@ -149,8 +149,37 @@
                   placeholder="English"
                 />
               </div>
-  
-            
+  <!-- Cover Image -->
+<div class="mb-4">
+  <label class="block text-sm font-semibold text-gray-700 mb-1">Cover Image</label>
+  <input
+    type="file"
+    accept="image/*"
+    @change="handleImageChange"
+    class="p-2 border w-full rounded-md focus:outline-none focus:ring focus:border-blue-300"
+  />
+</div>
+            <!-- PDF File Upload -->
+            <div class="mb-4">
+              <label class="block text-sm font-semibold text-gray-700 mb-1">Upload PDF</label>
+              <input
+                type="file"
+                accept="application/pdf"
+                @change="handleFileChange"
+                required
+                class="p-2 border w-full rounded-md focus:outline-none focus:ring focus:border-blue-300"
+              />
+            </div>
+            <div class="mb-4">
+    <label class="block text-sm font-semibold text-gray-700 mb-1">Table of Contents Pages</label>
+    <input
+        v-model="form.toc"
+        type="text"
+        class="p-2 border w-full rounded-md focus:outline-none focus:ring focus:border-blue-300"
+        placeholder="e.g. 3,4,5 (comma separated)"
+    />
+    <p class="text-xs text-gray-500 mt-1">Enter page numbers containing table of contents, separated by commas</p>
+</div>
   
               <!-- Submit Button -->
               <button 
@@ -159,8 +188,9 @@
                 class="w-full py-2 bg-green-500 hover:bg-green-600 text-white font-bold rounded-md transition-colors"
                 :class="{'opacity-50 cursor-not-allowed': isSubmitting}"
               >
-                <span v-if="!isSubmitting">Add Book</span>
-                <span v-else>Adding...</span>
+              <span v-if="isSubmitting">Submitting...</span>
+              <span v-else-if="isProcessing">Processing...</span>
+              <span v-else>Add Book</span>
               </button>
             </form>
           </div>
@@ -192,6 +222,10 @@
     pages: number
     language: string
     cover_image: string
+    coverImageFile: File | null
+    pdfFile: File | null
+    toc: string // Thay đổi từ int[] thành string để phù hợp với input
+    tocPages: number[] // Thêm trường mới để lưu dạng mảng số
   }
   
   const router = useRouter()
@@ -208,13 +242,26 @@
     isbn: '',
     pages: 0,
     language: 'English',
-    cover_image: ''
+    cover_image: '',
+    coverImageFile: null,
+    pdfFile: null,
+    toc: '', // Người dùng nhập chuỗi như "3,4,5"
+    tocPages: [] // Sẽ được xử lý khi submit
   })
   
   const categories = ref<Category[]>([])
-  const selectedFile = ref<File | null>(null)
   const isSubmitting = ref(false)
   
+  const processTocInput = (tocString: string): number[] => {
+    // Xử lý chuỗi nhập vào thành mảng số
+    return tocString
+        .split(',') // Tách theo dấu phẩy
+        .map(item => item.trim()) // Loại bỏ khoảng trắng
+        .filter(item => item !== '') // Loại bỏ item rỗng
+        .map(Number) // Chuyển thành số
+        .filter(num => !isNaN(num) && num > 0) // Chỉ lấy số hợp lệ
+}
+
   // Check authentication and fetch categories on mount
   onMounted(() => {
     const token = localStorage.getItem('adminToken')
@@ -225,46 +272,64 @@
     fetchCategories()
   })
   
+  // Khi chọn file PDF
   const handleFileChange = (event: Event) => {
     const target = event.target as HTMLInputElement
-    if (target.files && target.files[0]) {
-      selectedFile.value = target.files[0]
+    if (target.files && target.files.length > 0) {
+      form.value.pdfFile = target.files[0]
     }
   }
-  
+  const handleImageChange = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  if (target.files && target.files.length > 0) {
+    form.value.coverImageFile = target.files[0] // Giờ sẽ không còn lỗi
+    form.value.cover_image = target.files[0].name // Cập nhật cả tên file nếu cần
+  }
+}
+
+const isProcessing = ref(false)
+
+  // Submit form
   const submitForm = async () => {
     try {
       isSubmitting.value = true
-      
-      // First upload the image if selected
-      let coverImageUrl = ''
-
+      isProcessing.value = false
+      form.value.tocPages = processTocInput(form.value.toc)
+      // Chuẩn bị FormData để gửi file + dữ liệu
+      const formData = new FormData()
   
-      // Prepare book data
-      const bookData = {
-        title: form.value.title,
-        author: form.value.author,
-        description: form.value.description,
-        price: parseFloat(form.value.price.toString()),
-        stock: parseInt(form.value.stock.toString()),
-        category: form.value.category,
-        publisher: form.value.publisher,
-        isbn: form.value.isbn,
-        pages: parseInt(form.value.pages.toString()),
-        language: form.value.language,
-        cover_image: coverImageUrl
+      formData.append('title', form.value.title)
+      formData.append('author', form.value.author)
+      formData.append('description', form.value.description)
+      formData.append('price', form.value.price.toString())
+      formData.append('stock', form.value.stock.toString())
+      formData.append('category', form.value.category)
+      formData.append('publisher', form.value.publisher)
+      formData.append('isbn', form.value.isbn)
+      formData.append('pages', form.value.pages.toString())
+      formData.append('language', form.value.language)
+      formData.append('toc',form.value.toc)
+      // Thêm file ảnh nếu có
+      if (form.value.coverImageFile) {
+        formData.append('cover_image', form.value.coverImageFile)
       }
-  
-      console.log('Submitting book data:', bookData)
-  
-      // Submit book data
+      // Append file PDF nếu có
+      if (form.value.pdfFile) {
+        formData.append('pdf', form.value.pdfFile) // 👈 tên 'pdf' bạn đặt theo API backend yêu cầu
+      }
+      isProcessing.value = true
+      console.log('Submitting book data with file:', formData)
+      console.log('🔍 FormData content:')
+    for (const [key, value] of formData.entries()) {
+      console.log(`${key}:`, value)
+    }
       const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/books`, 
-        bookData, 
+        `${import.meta.env.VITE_API_URL}/api/books`,
+        formData,
         {
           headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${localStorage.getItem('adminToken')}`
+            'Content-Type': 'multipart/form-data',
+            Authorization: `Bearer ${localStorage.getItem('adminToken')}`,
           }
         }
       )
@@ -273,23 +338,26 @@
         throw new Error(response.data.message || 'Failed to add book')
       }
   
-      // Redirect to books list after successful submission
+      // Redirect thành công
+      isProcessing.value = false
       router.push('/admin/books')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding book:', error)
-      alert(error || 'Failed to add book. Please try again.')
+      alert(error?.message || 'Failed to add book. Please try again.')
     } finally {
       isSubmitting.value = false
+      isProcessing.value = false
     }
   }
   
+  // Fetch categories
   const fetchCategories = async () => {
     try {
       const response = await axios.get(
         `${import.meta.env.VITE_API_URL}/api/categories`,
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('adminToken')}`
+            Authorization: `Bearer ${localStorage.getItem('adminToken')}`,
           }
         }
       )
@@ -299,8 +367,8 @@
           id: index,
           name: name
         }))
-        
-        // Set default category if categories exist
+  
+        // Set default
         if (categories.value.length > 0) {
           form.value.category = categories.value[0].name
         }
@@ -311,3 +379,4 @@
     }
   }
   </script>
+  

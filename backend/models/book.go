@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
 
@@ -47,6 +48,10 @@ type Book struct {
 	PublishedAt   string       `json:"published_at"`
 	AverageRating float64      `gorm:"type:decimal(3,2);default:0" json:"average_rating"`
 
+	PDFUrl    string         `gorm:"size:255" json:"pdf_url,omitempty"` // <<< Trường URL PDF
+	Keywords  pq.StringArray `gorm:"type:text[]" json:"keywords"`       // Sử dụng pq.StringArray
+	TOCTitles pq.StringArray `gorm:"type:text[]" json:"toc_titles"`     // <<< Thay đổi kiểu thành array
+
 	OrderItems []OrderItem `gorm:"foreignKey:BookID" json:"-"`
 	Reviews    []Review    `gorm:"foreignKey:BookID" json:"-"`
 }
@@ -63,6 +68,7 @@ type BookInput struct {
 	ISBN        string       `json:"isbn" binding:"required,min=10,max=20"`
 	Pages       int          `json:"pages" binding:"gte=1"`
 	Language    string       `json:"language" binding:"max=20"`
+	PDFUrl      string       `json:"pdf_url"`
 }
 
 type BookResponse struct {
@@ -112,7 +118,7 @@ func (b *Book) BeforeCreate(tx *gorm.DB) error {
 		b.Price = 1.0
 	}
 	if b.CoverImage == "" {
-		b.CoverImage = "/uploads/default-cover.jpg"
+		b.CoverImage = "/uploads/covers/default-cover.jpg"
 	}
 	return nil
 }

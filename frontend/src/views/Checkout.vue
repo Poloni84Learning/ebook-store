@@ -67,9 +67,7 @@ const placeOrder = async () => {
     // Determine payment method
     let paymentMethodValue = '';
     switch (paymentMethod.value) {
-      case 'credit':
-        paymentMethodValue = 'Card';
-        break;
+
       case 'bankTransfer':
         paymentMethodValue = 'BankTransfer';
         break;
@@ -157,7 +155,7 @@ onMounted(() => {
   fetchUserProfile()
 })
 
-const paymentMethod = ref('credit') // credit, bankTransfer, cod
+const paymentMethod = ref('COD') 
 const cardDetails = ref({
   number: '',
   name: '',
@@ -322,7 +320,7 @@ const handleExpiryInput = (e: Event) => {
       <!-- Payment Method Options -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <button
-          v-for="method in ['credit', 'bankTransfer', 'cod']"
+          v-for="method in [ 'bankTransfer', 'cod']"
           :key="method"
           @click="paymentMethod = method"
           class="border rounded-lg p-4 text-center hover:border-primary transition-colors"
@@ -335,85 +333,7 @@ const handleExpiryInput = (e: Event) => {
         </button>
       </div>
 
-      <!-- Credit Card Form -->
-      <div v-if="paymentMethod === 'credit'" class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            {{ t('checkout.payment.card.number') }}
-          </label>
-          <input
-            v-model="cardDetails.number"
-            @input="handleCardNumberInput"
-            type="text"
-            placeholder="4242 4242 4242 4242"
-            class="w-full px-4 py-2 text-black border rounded-lg"
-            :class="{ 'border-red-500': paymentErrors.number }"
-          >
-          <p v-if="paymentErrors.number" class="text-red-500 text-sm mt-1">
-            {{ paymentErrors.number }}
-          </p>
-        </div>
 
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            {{ t('checkout.payment.card.name') }}
-          </label>
-          <input
-            v-model="cardDetails.name"
-            type="text"
-            placeholder="John Doe"
-            class="w-full px-4 py-2 text-black border rounded-lg"
-          >
-        </div>
-
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              {{ t('checkout.payment.card.expiry') }}
-            </label>
-            <input
-              v-model="cardDetails.expiry"
-              @input="handleExpiryInput"
-              type="text"
-              placeholder="MM/YY"
-              class="w-full px-4 py-2 text-black border rounded-lg"
-              :class="{ 'border-red-500': paymentErrors.expiry }"
-            >
-            <p v-if="paymentErrors.expiry" class="text-red-500 text-sm mt-1">
-              {{ paymentErrors.expiry }}
-            </p>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              {{ t('checkout.payment.card.cvc') }}
-            </label>
-            <input
-              v-model="cardDetails.cvc"
-              type="text"
-              placeholder="123"
-              maxlength="3"
-              class="w-full px-4 text-black  py-2 border rounded-lg"
-              :class="{ 'border-red-500': paymentErrors.cvc }"
-            >
-            <p v-if="paymentErrors.cvc" class="text-red-500 text-sm mt-1">
-              {{ paymentErrors.cvc }}
-            </p>
-          </div>
-        </div>
-
-        <div class="flex items-center mt-4">
-          <input
-            v-model="saveCard"
-            type="checkbox"
-            id="saveCard"
-            class="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
-          >
-          <label for="saveCard" class="ml-2 text-sm text-gray-700">
-            {{ t('checkout.payment.saveCard') }}
-          </label>
-        </div>
-      </div>
 
       <!-- BankTransfer Notice -->
       <div v-if="paymentMethod === 'bankTransfer'" class="bg-blue-50 p-4 rounded-lg">
@@ -464,14 +384,9 @@ const handleExpiryInput = (e: Event) => {
     </div>
     
     <div class="bg-gray-50 text-black rounded-lg p-4">
-      <template v-if="paymentMethod === 'credit'">
-        <p class="font-medium">{{ t('checkout.payment.methods.credit') }}</p>
-        <p class="text-black mt-2">•••• •••• •••• {{ cardDetails.number.slice(-4) }}</p>
-        <p>{{ cardDetails.name }}</p>
-        <p>Expires {{ cardDetails.expiry }}</p>
-      </template>
+
       
-      <template v-else-if="paymentMethod === 'bankTransfer'">
+      <template v-if="paymentMethod === 'bankTransfer'">
         <p class="font-medium">{{ t('checkout.payment.methods.bankTransfer') }}</p>
         <p class="mt-2 text-sm">{{ t('checkout.review.bankTransferNotice') }}</p>
       </template>

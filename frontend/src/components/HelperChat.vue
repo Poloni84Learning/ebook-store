@@ -1,56 +1,124 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
+
+interface Book {
+  ID: number
+  title: string
+  author: string
+  cover_image: string
+  // Các trường khác nếu cần
+}
+
+interface ChatMessage {
+  text: string
+  sender: 'user' | 'bot'
+  books?: Book[]
+  
+}
+
 const router = useRouter()
-
 const isOpen = ref(false)
-
-const messages = ref<Array<{text: string, sender: 'user' | 'bot'}>>([])
+const messages = ref<ChatMessage[]>([])
 const newMessage = ref('')
+const isLoading = ref(false)
+const apiUrl = import.meta.env.VITE_API_URL
+const messagesEndRef = ref<HTMLDivElement | null>(null)
 
-// Load messages from localStorage
+const scrollToBottom = () => {
+  nextTick(() => {
+    messagesEndRef.value?.scrollIntoView({ behavior: 'smooth' })
+  })
+}
+
+// Load messages and send welcome message
 onMounted(() => {
   const savedMessages = localStorage.getItem('chatHistory')
   if (savedMessages) {
     messages.value = JSON.parse(savedMessages)
-  }
-  const token = localStorage.getItem('authToken')
-    if (!token) {
-        messages.value = []
-  }
-  
-})
-
-// Save messages to localStorage when they change
-watch(messages, (newMessages) => {
-  localStorage.setItem('chatHistory', JSON.stringify(newMessages))
-}, { deep: true })
-
-const sendMessage = () => {
-    const token = localStorage.getItem('authToken')
-    if (!token) {
-    router.push('/login')
-  }
-  if (newMessage.value.trim() === '') return
-  
-  // Add user message
-  messages.value.push({
-    text: newMessage.value,
-    sender: 'user'
-  })
-  
-  // Simulate bot response
-  setTimeout(() => {
+    
+  } else {
     messages.value.push({
-      text: `I received your message: "${newMessage.value}"`,
+      text: 'Enter the keyword you want to search in depth',
       sender: 'bot'
     })
-    newMessage.value = ''
-  }, 500)
+  }
+  
+  
+  scrollToBottom()
+})
+
+watch(messages, (newMessages) => {
+  localStorage.setItem('chatHistory', JSON.stringify(newMessages))
+  scrollToBottom()
+
+}, { deep: true })
+const getCorrectImageUrl = (path: string) => {
+  if (!path) return '/placeholder.jpg';
+  if (path.startsWith('http')) return path; // Nếu đã là URL đầy đủ
+  
+  const base = import.meta.env.VITE_API_URL || 'http://localhost:8081';
+  return `${base}${path.startsWith('/') ? path : `/${path}`}`;
+};
+const searchBooks = async (query: string): Promise<Book[]> => {
+  isLoading.value = true
+  try {
+    const response = await fetch(`${apiUrl}/api/books/search-helper?q=${encodeURIComponent(query)}`)
+    if (!response.ok) throw new Error('Search failed')
+    const { data } = await response.json()
+    return data.slice(0, 4) // Lấy tối đa 4 quyển sách
+  } catch (error) {
+    console.error('Search error:', error)
+    return []
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const sendMessage = async () => {
+  const token = localStorage.getItem('authToken')
+  if (!token) {
+    router.push('/login')
+    return
+  }
+  
+  if (newMessage.value.trim() === '') return
+  
+  // Thêm tin nhắn người dùng
+  const userMessage: ChatMessage = {
+    text: newMessage.value,
+    sender: 'user'
+  }
+  messages.value.push(userMessage)
+  
+  // Tìm kiếm sách
+  const books = await searchBooks(newMessage.value)
+  newMessage.value = ''
+  
+  // Thêm phản hồi từ bot
+  if (books.length > 0) {
+    messages.value.push({
+      text: `Found ${books.length} books related to "${userMessage.text}":`,
+      sender: 'bot',
+      books: books
+    })
+  } else {
+    messages.value.push({
+      text: `No books found for "${userMessage.text}". Try another keyword.`,
+      sender: 'bot'
+    })
+  }
 }
 
 const clearChat = () => {
-  messages.value = []
+  messages.value = [{
+    text: 'Enter the keyword you want to search in depth',
+    sender: 'bot'
+  }]
+}
+
+const openBookInNewTab = (bookId: number) => {
+  window.open(`/books/${bookId}`, '_blank')
 }
 </script>
 
@@ -74,7 +142,7 @@ const clearChat = () => {
     >
       <!-- Header -->
       <div class="bg-[#FFCE1A] p-4 rounded-t-lg flex justify-between items-center">
-        <h3 class="font-bold text-lg">Helper Chat</h3>
+        <h3 class="font-bold text-lg">Book Search Helper</h3>
         <div class="flex space-x-2">
           <button @click="clearChat" class="text-black hover:text-gray-700">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -95,6 +163,23 @@ const clearChat = () => {
           <div v-if="message.sender === 'bot'" class="flex items-start">
             <div class="bg-gray-100 p-3 rounded-lg max-w-[80%]">
               <p class="text-black">{{ message.text }}</p>
+              <div v-if="message.books" class="mt-2 space-y-2">
+                <div 
+                  v-for="book in message.books" 
+                  :key="book.ID"
+                  @click="openBookInNewTab(book.ID)"
+                  class="flex items-start p-2 hover:bg-gray-200 rounded cursor-pointer"
+                >
+                  <img 
+                    :src="getCorrectImageUrl(book.cover_image) || '/default-book-cover.jpg'" 
+                    class="w-10 h-14 object-cover rounded mr-2"
+                  >
+                  <div>
+                    <p class="text-sm text-black font-medium">{{ book.title }}</p>
+                    <p class="text-xs text-gray-600">{{ book.author }}</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           <div v-else class="flex justify-end">
@@ -102,6 +187,10 @@ const clearChat = () => {
               <p class="text-black">{{ message.text }}</p>
             </div>
           </div>
+        </div>
+        <div ref="messagesEndRef"></div>
+        <div v-if="isLoading" class="flex justify-center py-2">
+          <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-[#FFCE1A]"></div>
         </div>
       </div>
 
@@ -111,14 +200,18 @@ const clearChat = () => {
           <input
             v-model="newMessage"
             type="text"
-            placeholder="Type your message..."
+            placeholder="Type your keyword..."
             class="flex-1 border text-black rounded-l-lg px-4 py-2 focus:outline-none focus:ring-1 focus:ring-[#FFCE1A]"
           />
           <button
             type="submit"
-            class="bg-[#FFCE1A] hover:bg-[#0D0842] text-black hover:text-white px-4 py-2 rounded-r-lg"
+            :disabled="isLoading"
+            class="bg-[#FFCE1A] hover:bg-[#0D0842] text-black hover:text-white px-4 py-2 rounded-r-lg disabled:opacity-50"
           >
-            Send
+            <svg v-if="isLoading" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 animate-spin" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z" />
+            </svg>
+            <span v-else>Search</span>
           </button>
         </form>
       </div>

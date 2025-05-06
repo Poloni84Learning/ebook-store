@@ -14,7 +14,10 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	// Middleware chung
 	router.Use(middlewares.CORSMiddleware())
 	router.Use(middlewares.LoggerMiddleware())
-	router.Static("/uploads", "./public/uploads")
+	router.Static("/uploads/covers", "/app/public/uploads/covers")
+
+	router.Static("/storage", "/app/storage")
+
 	// Khởi tạo controllers
 	authController := controllers.NewAuthController(db, cfg)
 	bookController := controllers.NewBookController(db, cfg)
@@ -70,11 +73,14 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 				adminBook.POST("", bookController.CreateBook)
 				adminBook.PUT("/:id", bookController.UpdateBook)
 				adminBook.DELETE("/:id", bookController.DeleteBook)
+
 			}
 
 			// Review routes
 			book.POST("/:id/reviews", reviewController.CreateReview) // User đánh giá sách
-
+			book.GET("/:id/download-link", bookController.GenerateDownloadLink)
+			book.GET("/download/:token", bookController.DownloadFile)
+			book.GET("/search-helper", bookController.SearchByKeywords)
 			// // Review management
 			review := protected.Group("/reviews")
 			{
@@ -116,6 +122,8 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 			admin.GET("/users", authController.ListUsers)
 			admin.POST("/users", authController.CreateStaff)
 			admin.PUT("/users/:id/role", authController.ChangeUserRole)
+			admin.GET("/books/:id/keywords", bookController.GetKeywordsAndTOC)
+			admin.PUT("/books/:id/keywords", bookController.UpdateKeywordsAndTOC)
 			adminDashboard := admin.Group("/dashboard")
 			{
 				adminDashboard.GET("/top-books", bookController.GetTopBooks)

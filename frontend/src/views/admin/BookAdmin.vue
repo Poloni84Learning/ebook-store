@@ -26,6 +26,7 @@
               </svg>
               View Books
             </router-link>
+            
             <router-link 
               to="/admin/books/add" 
               class="inline-flex px-5 py-3 text-white bg-purple-600 hover:bg-purple-700 focus:bg-purple-700 rounded-md"
@@ -142,14 +143,24 @@
   </template>
   
   <script setup lang="ts">
-  import { ref, onMounted } from 'vue'
+  import { ref, onMounted, watch } from 'vue'
   import axios from 'axios'
-  import { useRouter } from 'vue-router'
+  import { useRouter, useRoute  } from 'vue-router'
   import AdminSidebar from '@/components/AdminSidebar.vue' // Import the sidebar component
 import AppHeader from '@/components/HeaderAdmin.vue'
 
   const router = useRouter()
-  
+  const activeTab = ref('view')
+  const route = useRoute()
+watch(
+  () => route.path,
+  (newPath) => {
+    if (newPath === '/admin/books/view') {
+      activeTab.value = 'view'
+    }
+  },
+  { immediate: true }
+)
   // Data refs
   const selectedPeriod = ref('last-week')
   const topAuthors = ref<Array<{author: string, completed_orders_count: number}>>([])

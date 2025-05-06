@@ -1,5 +1,6 @@
 FROM golang:1.23-alpine AS builder
 
+RUN mkdir -p /app/storage/pdf
 WORKDIR /app
 
 # Bật Go module

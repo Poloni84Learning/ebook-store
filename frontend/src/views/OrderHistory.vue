@@ -2,6 +2,9 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import axios from 'axios'
+import { useToast } from 'vue-toastification'
+
+const toast = useToast()
 
 const { t } = useI18n()
 
@@ -45,6 +48,55 @@ const formatDate = (dateString: string) => {
 
 const getTotalItems = (orderItems: any[]) => {
   return orderItems.reduce((total, item) => total + item.Quantity, 0)
+}
+
+const downloadBook = async (bookId: number, bookTitle: string) => {
+  try {
+    const token = localStorage.getItem('authToken')
+    if (!token) return
+    
+    // Step 1: Get download link
+    const response = await axios.get(
+      `${import.meta.env.VITE_API_URL}/api/books/${bookId}/download-link`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    )
+    
+    if (response.data.success && response.data.download_url) {
+      // Step 2: Download the book using the link
+      const downloadResponse = await axios.get(
+        response.data.download_url,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          },
+          responseType: 'blob' // Important for file downloads
+        }
+      )
+      
+      // Create download link in memory
+      const url = window.URL.createObjectURL(new Blob([downloadResponse.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `${bookTitle}.pdf`) // or whatever file extension you expect
+      document.body.appendChild(link)
+      link.click()
+      
+      // Clean up
+      link.parentNode?.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      
+      toast.success(t('orderHistory.downloadSuccess'))
+    } else {
+      throw new Error('Failed to get download link')
+    }
+  } catch (error) {
+    console.error('Download error:', error)
+    toast.error(t('orderHistory.downloadError'))
+  }
 }
 </script>
 
@@ -107,15 +159,24 @@ const getTotalItems = (orderItems: any[]) => {
                       class="w-full h-full object-cover"
                     >
                   </div>
+                  
                   <div class="ml-4 flex-1">
                     <h4 class="text-black font-medium">{{ item.Book.title }}</h4>
                     <p class="text-sm text-gray-600">{{ t('common.by') }} {{ item.Book.author }}</p>
                     <p class="text-sm text-gray-600">{{ t('common.quantity') }}: {{ item.Quantity }}</p>
                     <p class="text-sm text-gray-600">${{ item.Price.toFixed(2) }} {{ t('common.each') }}</p>
                   </div>
+                  
+                  
                   <div class="text-right">
-                    <p class="font-medium">${{ (item.Price * item.Quantity).toFixed(2) }}</p>
-                  </div>
+      <p class="text-black font-medium">${{ (item.Price * item.Quantity).toFixed(2) }}</p>
+      <button 
+        @click="downloadBook(item.Book.ID, item.Book.title)"
+        class="mt-2 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+      >
+        {{ t('orderHistory.download') }}
+      </button>
+    </div>
                 </div>
               </div>
             </div>

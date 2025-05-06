@@ -53,6 +53,106 @@ interface Book {
   stock:number
 }
 
+interface Review {
+  ID: number
+  CreatedAt: string
+  UpdatedAt: string
+  rating: number
+  comment: string
+  user: {
+    username: string
+    first_name: string
+    last_name: string
+  }
+}
+const reviewError = ref<string | null>(null)
+// Add these new refs
+const reviews = ref<Review[]>([])
+const newReview = ref({
+  rating: 5,
+  comment: ''
+})
+
+// Add this function to fetch reviews
+const fetchReviews = async (bookId: string | number) => {
+  try {
+    const response = await axios.get(`${apiUrl}/api/books/${bookId}/reviews`)
+    reviews.value = response.data?.reviews?.map((r: any) => ({
+      ID: r.ID,
+      CreatedAt: r.CreatedAt,
+      UpdatedAt: r.UpdatedAt,
+      rating: r.rating,
+      comment: r.comment,
+      user: {
+        username: r.user?.username || 'Anonymous',
+        first_name: r.user?.first_name || '',
+        last_name: r.user?.last_name || ''
+      }
+    })) || []
+  } catch (error) {
+    console.error('Error fetching reviews:', error)
+  }
+}
+
+const isSubmittingReview = ref(false)
+const showReviewForm = ref(false)
+
+// Add this function to submit a new review
+const submitReview = async () => {
+  const token = localStorage.getItem('authToken')
+  if (!token) {
+    router.push('/login')
+    return
+  }
+
+  if (!book.value) return
+
+  reviewError.value = null
+  isSubmittingReview.value = true
+  
+  try {
+    await axios.post(
+      `${apiUrl}/api/books/${book.value.id}/reviews`,
+      {
+        book_id: book.value.id,
+        rating: newReview.value.rating,
+        comment: newReview.value.comment
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    )
+
+    // Refresh reviews after successful submission
+    await fetchReviews(book.value.id)
+    newReview.value = { rating: 5, comment: '' }
+    showReviewForm.value = false
+  } catch (error: any) {
+    if (axios.isAxiosError(error)) {
+      if (error.response?.data?.error === "You have already reviewed this book") {
+        reviewError.value = t('book.alreadyReviewed')
+      } else {
+        reviewError.value = error.response?.data?.message || t('book.reviewError')
+      }
+    } else {
+      reviewError.value = t('book.reviewError')
+    }
+  } finally {
+    isSubmittingReview.value = false
+  }
+}
+// Cập nhật hàm mở form review
+const openReviewForm = () => {
+  const token = localStorage.getItem('authToken')
+  if (!token) {
+    router.push('/login')
+    return
+  }
+  showReviewForm.value = true
+}
+
 const book = ref<Book | null>(null)
 const relatedBooks = ref<Book[]>([])
 const isLoading = ref(false)
@@ -117,6 +217,8 @@ const fetchBook = async (id: string | number) => {
     
     // Scroll to top smoothly
     window.scrollTo({ top: 0, behavior: 'smooth' })
+
+    await fetchReviews(id)
 
   } catch (error) {
     console.error('❌ Error fetching book details:', error)
@@ -275,6 +377,116 @@ watch(() => route.params.id, (newId) => {
           <div class="h-6 bg-gray-200 rounded w-1/4 animate-pulse"></div>
           <div class="h-32 bg-gray-200 rounded animate-pulse"></div>
           <div class="h-48 bg-gray-200 rounded animate-pulse"></div>
+        </div>
+      </div>
+    </section>
+        <!-- Reviews Section -->
+        <section v-if="book" class="container mx-auto px-4 py-8">
+      <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-2xl font-bold text-gray-800">
+            {{ t('book.reviews') }} ({{ reviews.length }})
+          </h2>
+          <button 
+            v-if="!showReviewForm" 
+            @click="showReviewForm = true"
+            class="btn-primary px-4 py-2 text-sm"
+          >
+            {{ t('book.addReview') }}
+          </button>
+        </div>
+
+        <!-- Review Form -->
+        <div v-if="showReviewForm" class="mb-8 p-4 bg-gray-50 rounded-lg">
+                  <!-- Hiển thị thông báo lỗi -->
+        <div v-if="reviewError" class="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
+          {{ reviewError }}
+        </div>
+          <h3 class="text-lg font-medium mb-4">{{ t('book.writeReview') }}</h3>
+          <div class="mb-4">
+            <label class="block text-gray-700 mb-2">{{ t('book.rating') }}</label>
+            <div class="flex items-center">
+              <button 
+                v-for="star in 5" 
+                :key="star" 
+                @click="newReview.rating = star"
+                class="focus:outline-none"
+              >
+                <svg 
+                  class="w-6 h-6" 
+                  :class="star <= newReview.rating ? 'text-yellow-400' : 'text-gray-300'" 
+                  fill="currentColor" 
+                  viewBox="0 0 20 20"
+                >
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="mb-4">
+            <label class="block text-gray-700 mb-2">{{ t('book.comment') }}</label>
+            <textarea
+              v-model="newReview.comment"
+              class="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              rows="4"
+              :placeholder="t('book.reviewPlaceholder')"
+            ></textarea>
+          </div>
+          <div class="flex justify-end space-x-3">
+            <button
+              @click="showReviewForm = false"
+              class="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100"
+            >
+              {{ t('common.cancel') }}
+            </button>
+            <button
+              @click="submitReview"
+              :disabled="isSubmittingReview || !newReview.comment"
+              class="btn-primary px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {{ isSubmittingReview ? t('common.submitting') : t('common.submit') }}
+            </button>
+          </div>
+        </div>
+
+<!-- Reviews List -->
+<div v-if="reviews.length > 0" class="space-y-6">
+  <div v-for="review in reviews" :key="review.ID" class="border-b border-gray-200 pb-6 last:border-0">
+    <div class="flex items-start mb-3">
+      <div class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center mr-4">
+        <span class="text-gray-600 font-medium">
+          {{ review.user.first_name.charAt(0) || review.user.username.charAt(0) }}
+        </span>
+      </div>
+      <div>
+        <h4 class="font-medium text-gray-800">
+          {{ review.user.first_name }} {{ review.user.last_name }} 
+          <span class="text-gray-500 text-sm">(@{{ review.user.username }})</span>
+        </h4>
+        <div class="flex items-center mt-1">
+          <div class="flex mr-2">
+            <svg 
+              v-for="star in 5" 
+              :key="star" 
+              class="w-4 h-4" 
+              :class="star <= review.rating ? 'text-yellow-400' : 'text-gray-300'" 
+              fill="currentColor" 
+              viewBox="0 0 20 20"
+            >
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+            </svg>
+          </div>
+          <span class="text-gray-500 text-sm">
+            {{ new Date(review.CreatedAt).toLocaleDateString() }}
+          </span>
+        </div>
+      </div>
+    </div>
+    <p class="text-gray-700 whitespace-pre-line pl-14">{{ review.comment }}</p>
+  </div>
+</div>
+        <div v-else class="text-center py-8 text-gray-500">
+          {{ t('book.noReviews') }}
         </div>
       </div>
     </section>

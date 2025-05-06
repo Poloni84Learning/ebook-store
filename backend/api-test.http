@@ -136,7 +136,8 @@ GET {{baseUrl}}/categories
 ###
 
 # [PUBLIC] Get single book by ID
-GET {{baseUrl}}/books/16
+GET {{baseUrl}}/books/19
+
 ###
 
 # [PUBLIC] Get single book by title
@@ -153,7 +154,7 @@ GET {{baseUrl}}/books/by-category?category=Programming
 ###
 
 # [PUBLIC] Get single book 
-GET {{baseUrl}}/books/search?category=H&title=H&author=h&description=H
+GET {{baseUrl}}/books/search?category=H&title=Không%có%quyền%truy%c&author=h&description=H
 
 ###
 
@@ -204,7 +205,9 @@ Content-Type: application/json
   "isbn": "9780136326885",
   "pages": 464,
   "language": "English",
-  "cover_image":""
+  "cover_image":"",
+  "toc_pages":"1 2 3"
+
 }
 
 
@@ -355,6 +358,20 @@ GET {{baseUrl}}/combos/2
 #xóa
 DELETE {{baseUrl}}/combos/{{createCombo.response.body.data.ID}}
 Authorization: Bearer {{staffToken}}
+###
+POST {{baseUrl}}/admin/system-config
+Authorization: Bearer {{adminToken}}
+
+{
+  "shippingfee" :2,
+  "promotion" : 10,
+  "promotioninfo": "New"
+}
+
+
+###
+GET {{baseUrl}}/admin/system-config
+Authorization: Bearer {{adminToken}}
 
 ### Dashboard
 #
@@ -391,4 +408,24 @@ Authorization: Bearer {{adminToken}}
 ### Dashboard
 #
 GET {{baseUrl}}/admin/dashboard/order-trend?time_range=week
+Authorization: Bearer {{adminToken}}
+
+### Tạo link tải sách
+GET http://localhost:8081/api/books/23/download-link
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+### Tải sách
+GET http://localhost:8081/api/books/download/
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+###
+
+# [PUBLIC] Get single book by ID
+GET {{baseUrl}}/books/23
+
+
+###
+
+GET {{baseUrl}}/books/1/keywords
 Authorization: Bearer {{adminToken}}
