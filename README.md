@@ -13,6 +13,6 @@ To run the application locally:
 
     ```bash
     docker-compose up --build
-    Frontend will be available at: http://localhost:5173
+Frontend will be available at: http://localhost:5173
 
 
