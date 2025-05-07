@@ -203,6 +203,30 @@ func (bc *BookController) CreateBook(c *gin.Context) {
 
 func callKeywordAndTOCApi(pdfPath, title, author, topic, tocPages string) (pq.StringArray, pq.StringArray, error) {
 
+	healthURL := fmt.Sprintf("%s/healthcheck", getAPIBaseURL())
+	healthResp, err := http.Get(healthURL)
+	if err != nil {
+		// If health check fails, return empty results
+		return pq.StringArray{}, pq.StringArray{}, nil
+	}
+	defer healthResp.Body.Close()
+
+	// If server is not healthy, return empty results
+	if healthResp.StatusCode != http.StatusOK {
+		return pq.StringArray{}, pq.StringArray{}, nil
+	}
+
+	// Parse health check response
+	var healthStatus struct {
+		Status string `json:"status"`
+	}
+	if err := json.NewDecoder(healthResp.Body).Decode(&healthStatus); err != nil {
+		return pq.StringArray{}, pq.StringArray{}, nil
+	}
+	if healthStatus.Status != "healthy" {
+		return pq.StringArray{}, pq.StringArray{}, nil
+	}
+
 	file, err := os.Open(pdfPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("mở file PDF thất bại: %w", err)
@@ -237,7 +261,7 @@ func callKeywordAndTOCApi(pdfPath, title, author, topic, tocPages string) (pq.St
 
 	// Gửi request
 	apiURL := fmt.Sprintf("%s/extract-keywords", getAPIBaseURL())
-	req, err := http.NewRequest("POST", apiURL, body) // chỉnh lại URL phù hợp
+	req, err := http.NewRequest("POST", apiURL, body)
 	if err != nil {
 		return nil, nil, fmt.Errorf("tạo request thất bại: %w", err)
 	}
@@ -274,9 +298,9 @@ func callKeywordAndTOCApi(pdfPath, title, author, topic, tocPages string) (pq.St
 func getAPIBaseURL() string {
 	// Khi chạy trong Docker (tự động phát hiện)
 	if _, err := os.Stat("/.dockerenv"); err == nil {
-		return "http://host.docker.internal:8001" // Cho Windows/Mac Docker
+		return "http://host.docker.internal:8001"
 	}
-	return "http://localhost:8001" // Khi chạy trực tiếp
+	return "http://localhost:8001"
 }
 
 // Helper function để lưu file tạm

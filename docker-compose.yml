@@ -37,7 +37,7 @@ services:
       DEBUG_MODE: ${DEBUG_MODE:-true}
       TZ: ${TIME_ZONE:-Asia/Ho_Chi_Minh}
       UPLOAD_ROOT: /app/storage
-      DOCKER_NETWORK_ENABLED: true
+      DOCKER_NETWORK_ENABLED: "true"
     ports:
       - "${SERVER_PORT:-8081}:8081"
     volumes:

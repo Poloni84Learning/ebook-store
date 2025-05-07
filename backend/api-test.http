@@ -411,7 +411,7 @@ GET {{baseUrl}}/admin/dashboard/order-trend?time_range=week
 Authorization: Bearer {{adminToken}}
 
 ### Tạo link tải sách
-GET http://localhost:8081/api/books/23/download-link
+GET http://localhost:8081/api/books/19/download-link
 Authorization: Bearer {{customerToken}}
 Content-Type: application/json
 
@@ -422,10 +422,24 @@ Content-Type: application/json
 ###
 
 # [PUBLIC] Get single book by ID
-GET {{baseUrl}}/books/23
+GET {{baseUrl}}/books/19
 
+
+### Xem keyword
+
+GET {{baseUrl}}/admin/books/19/keywords
+Authorization: Bearer {{adminToken}}
 
 ###
 
-GET {{baseUrl}}/books/1/keywords
+PUT {{baseUrl}}/admin/books/1/keywords
 Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "keywords": ["vampire", "romance"],
+  "toc_titles": ["Chương 1", "Chương 2"]
+}
+
+###
+GET {{baseUrl}}/books/search-helper?q=Edward
