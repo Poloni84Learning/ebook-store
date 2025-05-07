@@ -1,3 +1,4 @@
+version: '3.8'
 services:
   db:
     image: postgres:15-alpine
@@ -6,7 +7,7 @@ services:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       POSTGRES_DB: ${DB_NAME:-ebook_store}
-      TZ: ${TIME_ZONE:-Asia/Ho_Chi_Minh}  # Thêm múi giờ cho DB
+      TZ: ${TIME_ZONE:-Asia/Ho_Chi_Minh}  
     ports:
       - "${DB_PORT:-5432}:5432"
     volumes:
@@ -50,21 +51,21 @@ services:
     restart: unless-stopped
     
     
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "5173:5173"  # Vite dev server port
-  #   volumes:
-  #     - ./frontend:/app
-  #     - /app/node_modules
-  #   environment:
-  #     - VITE_API_BASE_URL=http://backend:8081 # URL cho API calls
-  #     - CHOKIDAR_USEPOLLING=true
-  #   depends_on:
-  #     - backend
-  #   restart: unless-stopped
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"  # Vite dev server port
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_BASE_URL=http://backend:8081 # URL API calls
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+    restart: unless-stopped
  
 volumes:
   postgres_data:
