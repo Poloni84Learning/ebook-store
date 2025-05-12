@@ -21,15 +21,15 @@ type User struct {
 	PasswordHash string     `gorm:"size:255;not null" json:"-"`
 	FirstName    string     `gorm:"size:50" json:"first_name,omitempty"`
 	LastName     string     `gorm:"size:50" json:"last_name,omitempty"`
-	Phone        string     `gorm:"size:20;index" json:"phone,omitempty"` // Thêm index cho tìm kiếm
+	Phone        string     `gorm:"size:20;index" json:"phone,omitempty"`
 	Address      string     `gorm:"size:255" json:"address,omitempty"`
-	Role         Role       `gorm:"type:varchar(20);default:'customer';index" json:"role"` // Thêm index
+	Role         Role       `gorm:"type:varchar(20);default:'customer';index" json:"role"`
 	LastLogin    *time.Time `json:"last_login,omitempty"`
-	IsActive     bool       `gorm:"default:true;index" json:"is_active"` // Thêm index
+	IsActive     bool       `gorm:"default:true;index" json:"is_active"`
 	AvatarURL    string     `gorm:"size:255" json:"avatar_url,omitempty"`
 
 	// Quan hệ
-	Orders  []Order  `gorm:"foreignKey:UserID" json:"orders,omitempty"` // Nên bật omitempty
+	Orders  []Order  `gorm:"foreignKey:UserID" json:"orders,omitempty"`
 	Reviews []Review `gorm:"foreignKey:UserID" json:"reviews,omitempty"`
 }
 
