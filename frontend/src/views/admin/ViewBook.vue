@@ -105,7 +105,7 @@
                         <button v-if="!book.editing" 
                                 @click="confirmDelete(book)"
                                 class="text-red-600 hover:text-red-900">
-                          Delete
+                          Hide
                         </button>
                         
                         <button v-if="book.editing" 

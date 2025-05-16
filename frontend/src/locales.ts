@@ -11,7 +11,7 @@ const messages = {
       ctaSubtitle: "Sign up and get access to exclusive deals, book recommendations, and more.",
       signUpNow: "Sign Up Now"
     },
-    books: 'Books',
+    
     categories: 'Categories',
     login: 'Login',
     about: 'About Us',
@@ -65,28 +65,59 @@ const messages = {
     },
   },
 
-    "book": {
-      "by": "by"
+    
+  orderHistory: {
+    title: "Order History",
+    emptyMessage: "You haven't placed any orders yet.",
+    orderId: "Order ID",
+    orderDate: "Order Date",
+    itemsCount: "Items",
+    customerInfo: "Customer Information",
+    paymentMethod: "Payment Method",
+    orderItems: "Order Items",
+    total: "Total",
+    download: "Download",
+    downloadSuccess: "Download started successfully",
+    downloadError: "Failed to download the book",
+    status: {
+      pending: "Pending",
+      processing: "Processing",
+      completed: "Completed",
+      cancelled: "Cancelled"
+    }
+  },
+      cart: {
+    addedTitle: "Added to Cart",
+    addedMessage: "The item has been added to your shopping cart.",
+    continueShopping: "Continue Shopping",
+    goToCart: "Go to Cart",
+       title: "Your Cart ({count} items)",
+    clearCart: "Clear Cart",
+    empty: {
+      title: "Your cart is empty",
+      description: "Start shopping to add items to your cart"
     },
-    orderHistory: {
-      title: "Your Orders",
-      "emptyMessage": "No orders found",
-      "orderId": "Order ID",
-      "orderDate": "Order Date",
-      "customerInfo": "Customer Information",
-      "shippingAddress": "Shipping Address",
-      "orderItems": "Order Items",
-      "subtotal": "Subtotal",
-      "shippingFee": "Shipping Fee",
-      "tax": "Tax",
-      "total": "Total",
-      "status": {
-        "processing": "Processing",
-        "completed": "Completed",
-        "pending": "Pending",
-        "cancelled": "Cancelled"
-      }
+    subtotal: "Subtotal",
+    shipping: "Shipping",
+    shippingNote: "Shipping and taxes calculated at checkout",
+    total: "Total",
+    checkout: "Proceed to Checkout",
+    
+    clearModal: {
+      title: "Clear your cart?",
+      description: "This will remove all items from your cart. This action cannot be undone.",
+      confirm: "Clear Cart"
     },
+    deleteModal: {
+      title: "Remove this item?",
+      description: "This will remove the item from your cart. You can add it again later if you change your mind."
+    },
+    checkoutModal: {
+      title: "Proceed to Checkout?",
+      description: "Please review your order summary before proceeding:",
+      confirm: "Confirm Checkout"
+    }
+  },
     "common": {
       "name": "Name",
       "email": "Email",
@@ -94,9 +125,51 @@ const messages = {
       "zipCode": "ZIP Code",
       "quantity": "Quantity",
       "each": "each",
-      "by":"by"
-    }
-  
+      "by":"by",
+       cancel: "Cancel",
+      submit: "Submit",
+      submitting: "Submitting...",
+      remove: "Remove",
+      
+    },
+    books: {
+    pageTitle: "Our Book Collection",
+    pageSubtitle: "Discover amazing books from talented authors around the world",
+    searchPlaceholder: "Search by title or author...",
+    sortBy: "Sort by",
+    newest: "Newest",
+    priceLow: "Price: Low to High",
+    priceHigh: "Price: High to Low",
+    topRated: "Top Rated",
+    noBooksFound: "No books found",
+    tryDifferentSearch: "Try a different search term or filter",
+    
+    // Thêm các key khác nếu cần
+  }  ,
+  book:{
+    by:"by",
+        addToCart: "Add to Cart",
+    description: "Description",
+    language: "Language",
+    isbn: "ISBN",
+    category: "Category",
+    relatedBooks: "You May Also Like",
+    reviews: "Customer Reviews",
+    addReview: "Add Review",
+    writeReview: "Write a Review",
+    rating: "Rating",
+    comment: "Comment",
+    reviewPlaceholder: "Share your thoughts about this book...",
+    noReviews: "No reviews yet. Be the first to review!",
+    alreadyReviewed: "You have already reviewed this book",
+    reviewError: "Error submitting review. Please try again.",
+    stock: "Stock",
+    inStock: "In Stock",
+    outOfStock: "Out of Stock",
+        author: "Author",
+    price: "Price",
+    each: "each"
+  }
     
   },
   ru: {
