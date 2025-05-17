@@ -21,7 +21,7 @@ services:
   backend:
     build: 
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: dockerfile
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
@@ -54,7 +54,7 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: dockerfile
     ports:
       - "5173:5173"  # Vite dev server port
     volumes:

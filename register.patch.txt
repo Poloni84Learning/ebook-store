@@ -1,0 +1,42 @@
+From 7b1dbd43f2eb41f1c526c775060d4046ab72d539 Mon Sep 17 00:00:00 2001
+From: Evgeny Pestov <fsdhfhhf@gmail.com>
+Date: Sat, 17 May 2025 16:59:41 +0700
+Subject: [PATCH] Lower first char in "dockerfile" to fix build in case
+ sensitive file systems
+
+---
+ docker-compose.yml | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/docker-compose.yml b/docker-compose.yml
+index 3e1efa2..db39959 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -21,7 +21,7 @@ services:
+   backend:
+     build: 
+       context: ./backend
+-      dockerfile: Dockerfile
++      dockerfile: dockerfile
+     extra_hosts:
+       - "host.docker.internal:host-gateway"
+     environment:
+@@ -54,7 +54,7 @@ services:
+   frontend:
+     build:
+       context: ./frontend
+-      dockerfile: Dockerfile
++      dockerfile: dockerfile
+     ports:
+       - "5173:5173"  # Vite dev server port
+     volumes:
+@@ -68,4 +68,4 @@ services:
+     restart: unless-stopped
+  
+ volumes:
+-  postgres_data:
+\ No newline at end of file
++  postgres_data:
+-- 
+2.39.5
+
