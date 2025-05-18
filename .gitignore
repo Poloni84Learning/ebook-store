@@ -42,5 +42,4 @@ Thumbs.db
 docker-compose.override.yml
 backend/docker-compose.*.yml
 
-
 ~$*
