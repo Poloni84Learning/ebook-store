@@ -42,4 +42,6 @@ Thumbs.db
 docker-compose.override.yml
 backend/docker-compose.*.yml
 
-~$*
+# Ignore patch files
+*.patch
+*.patch.txt
