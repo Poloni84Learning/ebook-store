@@ -44,4 +44,4 @@ backend/docker-compose.*.yml
 
 # Ignore patch files
 *.patch
-*.patch.txt
+*.patch.*
